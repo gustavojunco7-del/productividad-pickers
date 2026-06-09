@@ -148,7 +148,7 @@ tr:hover td{background:#ffffff05}
     <div class="card green">
       <div class="card-label">Promedio general</div>
       <div class="card-val" id="statPromedio">—</div>
-      <div class="card-sub">items/hora</div>
+      <div class="card-sub">líneas/hora</div>
     </div>
     <div class="card green">
       <div class="card-label">Mejor picker</div>
@@ -161,9 +161,9 @@ tr:hover td{background:#ffffff05}
       <div class="card-sub" id="statPeorUser">—</div>
     </div>
     <div class="card">
-      <div class="card-label">Total items</div>
+      <div class="card-label">Total líneas</div>
       <div class="card-val" id="statItems">—</div>
-      <div class="card-sub">pickeados</div>
+      <div class="card-sub" id="statUnidades">— unidades</div>
     </div>
   </div>
 
@@ -171,7 +171,7 @@ tr:hover td{background:#ffffff05}
     <div class="tbl-head">
       <div>
         <div class="tbl-title">Ranking de Productividad</div>
-        <div class="tbl-subtitle">Items/hora · primer pick → último pick del período</div>
+        <div class="tbl-subtitle">Líneas/hora · Drop = unidades por línea · primer pick → último pick</div>
       </div>
     </div>
     <table>
@@ -179,11 +179,13 @@ tr:hover td{background:#ffffff05}
         <tr>
           <th>#</th>
           <th>Usuario</th>
-          <th>Items totales</th>
+          <th>Líneas</th>
+          <th>Unidades</th>
+          <th>Drop</th>
           <th>Primer pick</th>
           <th>Último pick</th>
           <th>Tiempo activo</th>
-          <th>Items/hora</th>
+          <th>Líneas/hora</th>
           <th>Estado</th>
         </tr>
       </thead>
@@ -271,9 +273,10 @@ function render(rows, filename){
     var cant = parseCant(r['Cantidad']);
     if(!fecha) return;
     if(!usuarios[user]){
-      usuarios[user] = {items:0, first:fecha, last:fecha};
+      usuarios[user] = {items:0, lineas:0, first:fecha, last:fecha};
     }
     usuarios[user].items += cant;
+    usuarios[user].lineas += 1;
     if(fecha < usuarios[user].first) usuarios[user].first = fecha;
     if(fecha > usuarios[user].last)  usuarios[user].last  = fecha;
   });
@@ -284,14 +287,16 @@ function render(rows, filename){
     var mins = (d.last - d.first) / 60000;
     var hs = mins / 60;
     var iph = hs > 0 ? Math.round(d.items / hs) : d.items;
-    return {user:u, items:Math.round(d.items), first:d.first, last:d.last, mins:mins, iph:iph};
+    var drop = d.lineas > 0 ? Math.round(d.items / d.lineas * 10) / 10 : 0;
+    return {user:u, items:Math.round(d.items), lineas:d.lineas, drop:drop, first:d.first, last:d.last, mins:mins, iph:iph};
   });
 
   // Ordenar por items/hora desc
   lista.sort(function(a,b){ return b.iph - a.iph; });
 
   // Stats
-  var totalItems = lista.reduce(function(s,x){return s+x.items;},0);
+  var totalItems = lista.reduce(function(s,x){return s+x.lineas;},0);
+  var totalUnidades = lista.reduce(function(s,x){return s+x.items;},0);
   var avgIph = lista.length ? Math.round(lista.reduce(function(s,x){return s+x.iph;},0)/lista.length) : 0;
   var maxIph = lista.length ? lista[0].iph : 0;
   var minIph = lista.length ? lista[lista.length-1].iph : 0;
@@ -321,6 +326,7 @@ function render(rows, filename){
   document.getElementById('statPeor').textContent = minIph;
   document.getElementById('statPeorUser').textContent = lista.length ? lista[lista.length-1].user : '—';
   document.getElementById('statItems').textContent = totalItems.toLocaleString('es-AR');
+  document.getElementById('statUnidades').textContent = totalUnidades.toLocaleString('es-AR')+' unidades';
 
   // Tabla
   var tbody = document.getElementById('tbody');
@@ -336,7 +342,9 @@ function render(rows, filename){
     tr.innerHTML =
       '<td><span class="rank'+(isTop?' top':'')+'">'+( i===0?'🥇': i===1?'🥈': i===2?'🥉': '#'+(i+1))+'</span></td>'+
       '<td><div class="user">'+x.user+'</div></td>'+
+      '<td><span class="items-val">'+x.lineas.toLocaleString('es-AR')+'</span></td>'+
       '<td><span class="items-val">'+x.items.toLocaleString('es-AR')+'</span></td>'+
+      '<td><span class="items-val" style="color:'+( x.drop>=5?'var(--green)': x.drop>=2?'var(--yellow)':'var(--red)')+'">'+x.drop+'</span></td>'+
       '<td><span class="time-val">'+fmtHora(x.first)+'</span></td>'+
       '<td><span class="time-val">'+fmtHora(x.last)+'</span></td>'+
       '<td><span class="time-val">'+fmtMin(x.mins)+'</span></td>'+
