@@ -136,7 +136,17 @@ tr:hover td{background:#ffffff05}
       <div class="chip">Período: <span id="infoPeriodo">—</span></div>
       <div class="chip">Movimientos: <span id="infoMovimientos">—</span></div>
     </div>
-    <button class="btn-reset" onclick="resetView()">← Cargar otro archivo</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--muted2)">Ver últimas:</span>
+      <select id="filtroHoras" onchange="cambiarFiltro(this.value)" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer">
+        <option value="0">Todo el período</option>
+        <option value="2">2 horas</option>
+        <option value="4">4 horas</option>
+        <option value="6">6 horas</option>
+        <option value="8">8 horas</option>
+      </select>
+      <button class="btn-reset" onclick="resetView()">← Cargar otro archivo</button>
+    </div>
   </div>
 
   <div class="cards">
@@ -230,9 +240,16 @@ function processFile(file){
     var ws = wb.Sheets[wb.SheetNames[0]];
     var rows = XLSX.utils.sheet_to_json(ws, {raw:false, defval:''});
     if(!rows.length){ alert('El archivo está vacío o no tiene el formato esperado.'); return; }
+    window._rawRows = rows;
+    window._rawFile = file.name;
     render(rows, file.name);
   };
   reader.readAsArrayBuffer(file);
+}
+
+function cambiarFiltro(val){
+  window._horasFiltro = parseInt(val)||0;
+  if(window._rawRows) render(window._rawRows, window._rawFile);
 }
 
 // ── PARSE ──
@@ -281,6 +298,30 @@ function render(rows, filename){
     if(fecha > usuarios[user].last)  usuarios[user].last  = fecha;
   });
 
+  // Filtro de últimas horas
+  var HORAS_FILTRO = window._horasFiltro || 0; // 0 = todo
+  if(HORAS_FILTRO > 0){
+    var ahora = new Date(Math.max.apply(null, Object.values(usuarios).map(function(u){return u.last;})));
+    var corte = new Date(ahora.getTime() - HORAS_FILTRO * 3600000);
+    // Filtrar registros: recalcular con solo los del período
+    var usuariosFiltrados = {};
+    rows.forEach(function(r){
+      var user = (r['Usuario']||'').trim();
+      if(!user) return;
+      var fecha = parseFecha(r['Fecha']);
+      var cant = parseCant(r['Cantidad']);
+      if(!fecha || fecha < corte) return;
+      if(!usuariosFiltrados[user]) usuariosFiltrados[user] = {items:0, lineas:0, first:fecha, last:fecha};
+      usuariosFiltrados[user].items += cant;
+      usuariosFiltrados[user].lineas += 1;
+      if(fecha < usuariosFiltrados[user].first) usuariosFiltrados[user].first = fecha;
+      if(fecha > usuariosFiltrados[user].last)  usuariosFiltrados[user].last  = fecha;
+    });
+    // Solo incluir usuarios que tuvieron actividad en el período
+    Object.keys(usuariosFiltrados).forEach(function(u){ usuarios[u] = usuariosFiltrados[u]; });
+    Object.keys(usuarios).forEach(function(u){ if(!usuariosFiltrados[u]) delete usuarios[u]; });
+  }
+
   // Calcular items/hora
   var lista = Object.keys(usuarios).map(function(u){
     var d = usuarios[u];
@@ -291,8 +332,8 @@ function render(rows, filename){
     return {user:u, items:Math.round(d.items), lineas:d.lineas, drop:drop, first:d.first, last:d.last, mins:mins, iph:iph};
   });
 
-  // Ordenar por items/hora desc
-  lista.sort(function(a,b){ return b.iph - a.iph; });
+  // Ordenar peor a mejor (el que está más bajo arriba)
+  lista.sort(function(a,b){ return a.iph - b.iph; });
 
   // Stats
   var totalItems = lista.reduce(function(s,x){return s+x.lineas;},0);
@@ -340,7 +381,7 @@ function render(rows, filename){
 
     var tr = document.createElement('tr');
     tr.innerHTML =
-      '<td><span class="rank'+(isTop?' top':'')+'">'+( i===0?'🥇': i===1?'🥈': i===2?'🥉': '#'+(i+1))+'</span></td>'+
+      '<td><span class="rank'+(isTop?' top':'')+'">'+('#'+(i+1))+'</span></td>'+
       '<td><div class="user">'+x.user+'</div></td>'+
       '<td><span class="items-val">'+x.lineas.toLocaleString('es-AR')+'</span></td>'+
       '<td><span class="items-val">'+x.items.toLocaleString('es-AR')+'</span></td>'+
@@ -369,6 +410,9 @@ function resetView(){
   document.getElementById('fileInput').value = '';
   document.getElementById('tbody').innerHTML = '';
   document.getElementById('badgeFecha').style.display = 'none';
+  window._rawRows = null;
+  window._rawFile = null;
+  window._horasFiltro = 0;
 }
 </script>
 </body>
