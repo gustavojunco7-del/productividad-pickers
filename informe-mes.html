@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Informe de Cierre · Exologística Nike</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08090d;
+  --surface:#0f1117;
+  --surface2:#161820;
+  --border:#1f2230;
+  --orange:#FF6B00;
+  --orange-dim:#ff6b0020;
+  --green:#22c55e;
+  --green-dim:#22c55e18;
+  --yellow:#f59e0b;
+  --red:#ef4444;
+  --red-dim:#ef444418;
+  --text:#f0f2f7;
+  --muted:#64748b;
+  --muted2:#94a3b8;
+  --mono:'DM Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+
+/* ── LAYOUT ── */
+.page{max-width:1100px;margin:0 auto;padding:0 32px 80px}
+
+/* ── COVER ── */
+.cover{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0 80px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.cover::before{content:'';position:absolute;top:-120px;right:-180px;width:600px;height:600px;background:radial-gradient(circle,#FF6B0015 0%,transparent 70%);pointer-events:none}
+.cover-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--orange);text-transform:uppercase;margin-bottom:24px}
+.cover-title{font-size:clamp(40px,6vw,72px);font-weight:900;line-height:1.05;letter-spacing:-2px;margin-bottom:16px}
+.cover-title span{color:var(--orange)}
+.cover-sub{font-size:16px;color:var(--muted2);max-width:480px;margin-bottom:48px}
+.cover-meta{display:flex;gap:32px;flex-wrap:wrap}
+.cover-stat{display:flex;flex-direction:column;gap:4px}
+.cover-stat-val{font-size:28px;font-weight:800;font-family:var(--mono)}
+.cover-stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+
+/* ── SECTION ── */
+.section{padding:56px 0 0}
+.section-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--orange);text-transform:uppercase;margin-bottom:8px}
+.section-title{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:32px}
+.section-title span{color:var(--muted)}
+
+/* ── KPI ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;inset:0;border-radius:12px;background:var(--kpi-glow,transparent)}
+.kpi.green{--kpi-glow:linear-gradient(135deg,var(--green-dim),transparent 60%)}
+.kpi.red{--kpi-glow:linear-gradient(135deg,var(--red-dim),transparent 60%)}
+.kpi.orange{--kpi-glow:linear-gradient(135deg,var(--orange-dim),transparent 60%)}
+.kpi-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.kpi-val{font-size:32px;font-weight:900;font-family:var(--mono);line-height:1;margin-bottom:4px}
+.kpi-sub{font-size:11px;color:var(--muted2)}
+.kpi.green .kpi-val{color:var(--green)}
+.kpi.red .kpi-val{color:var(--red)}
+.kpi.orange .kpi-val{color:var(--orange)}
+
+/* ── CHART CARD ── */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px}
+.chart-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px}
+.chart-title{font-size:13px;font-weight:700}
+.chart-sub{font-size:11px;color:var(--muted2)}
+
+/* ── TABLE ── */
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.tbl-hdr{padding:16px 20px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 16px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+td{padding:11px 16px;border-bottom:1px solid #0d0f18;font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#ffffff04}
+
+/* ── BAR INLINE ── */
+.bar-wrap{display:flex;align-items:center;gap:8px}
+.bar-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;min-width:80px}
+.bar-fill{height:100%;border-radius:3px}
+.bar-val{font-family:var(--mono);font-size:12px;font-weight:600;min-width:40px;text-align:right}
+
+/* ── PILLS ── */
+.pill{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.pill-green{background:var(--green-dim);color:var(--green);border:1px solid #22c55e30}
+.pill-red{background:var(--red-dim);color:var(--red);border:1px solid #ef444430}
+.pill-yellow{background:#f59e0b18;color:var(--yellow);border:1px solid #f59e0b30}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:var(--border);margin:48px 0 0}
+
+/* ── FOOTER ── */
+.foot{padding:40px 0;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:48px}
+.foot-l{font-size:11px;color:var(--muted)}
+.foot-r{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
+
+/* ── LOADING ── */
+.loading{display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:16px;color:var(--muted2)}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── PRINT ── */
+@media print{
+  body{background:#fff;color:#000}
+  .cover::before{display:none}
+  .no-print{display:none!important}
+}
+
+/* ── GRID ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen" class="loading">
+  <div class="spinner"></div>
+  <div>Cargando datos del mes...</div>
+</div>
+
+<div id="report" style="display:none">
+<div class="page">
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-eyebrow">Informe de Cierre · Operación Nike</div>
+  <h1 class="cover-title">Resumen<br><span id="coverMes">—</span></h1>
+  <p class="cover-sub">Productividad operativa por turno — Pickers y Mesa de Control</p>
+  <div class="cover-meta">
+    <div class="cover-stat">
+      <span class="cover-stat-val" id="coverTotalLineas">—</span>
+      <span class="cover-stat-lbl">Líneas pickeadas</span>
+    </div>
+    <div class="cover-stat">
+      <span class="cover-stat-val" id="coverTotalBultos">—</span>
+      <span class="cover-stat-lbl">Bultos controlados</span>
+    </div>
+    <div class="cover-stat">
+      <span class="cover-stat-val" id="coverDias">—</span>
+      <span class="cover-stat-lbl">Días operativos</span>
+    </div>
+    <div class="cover-stat">
+      <span class="cover-stat-val" id="coverPickers">—</span>
+      <span class="cover-stat-lbl">Pickers activos</span>
+    </div>
+  </div>
+</div>
+
+<!-- PICKERS -->
+<div class="section">
+  <div class="section-eyebrow">Módulo 01</div>
+  <div class="section-title">Pickers <span>· Productividad</span></div>
+
+  <div class="kpi-row" id="pickKpis"></div>
+
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div class="chart-title">Evolución semanal — Líneas promedio por operario por turno</div>
+      <div class="chart-sub">Objetivo: <strong style="color:var(--green)">200 líneas / turno</strong></div>
+    </div>
+    <canvas id="chartPickSemanal" height="80"></canvas>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-hdr">
+        <div class="chart-title">Promedio por turno — mes completo</div>
+      </div>
+      <canvas id="chartPickTurnos" height="140"></canvas>
+    </div>
+    <div class="tbl-card">
+      <div class="tbl-hdr"><span>Ranking de operarios</span><span style="font-size:10px;color:var(--muted)">Top 10 por líneas totales</span></div>
+      <table><thead><tr><th>#</th><th>Operario</th><th>Líneas</th><th>vs Target</th></tr></thead>
+      <tbody id="pickRanking"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- MESA CONTROL -->
+<div class="section">
+  <div class="divider"></div>
+  <div style="padding-top:48px">
+  <div class="section-eyebrow">Módulo 02</div>
+  <div class="section-title">Mesa de Control <span>· Productividad</span></div>
+
+  <div class="kpi-row" id="ctlKpis"></div>
+
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div class="chart-title">Evolución semanal — Bultos promedio por operario por turno</div>
+      <div class="chart-sub">FTW/EQP: <strong style="color:var(--green)">200 bultos</strong> · APP: <strong style="color:var(--yellow)">40 bultos</strong></div>
+    </div>
+    <canvas id="chartCtlSemanal" height="80"></canvas>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-hdr">
+        <div class="chart-title">Promedio por turno — mes completo</div>
+      </div>
+      <canvas id="chartCtlTurnos" height="140"></canvas>
+    </div>
+    <div class="tbl-card">
+      <div class="tbl-hdr"><span>Ranking por CIA</span><span style="font-size:10px;color:var(--muted)">Bultos totales</span></div>
+      <table><thead><tr><th>CIA</th><th>Operario</th><th>Unidades</th><th>Bultos</th><th>% Target</th></tr></thead>
+      <tbody id="ctlRanking"></tbody></table>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="foot">
+  <div class="foot-l">Exologística · Operación Nike · Confidencial</div>
+  <div class="foot-r" id="footFecha"></div>
+</div>
+
+</div><!-- /page -->
+</div><!-- /report -->
+
+<script>
+var SB_URL='https://mepgeidrcrsaqvcihslm.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lcGdlaWRyY3JzYXF2Y2loc2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzI3OTcsImV4cCI6MjA5NDMwODc5N30.1dji3baHAGyfcNfqPz9Nxu_BChRQqmt57jFJplCM8K4';
+var SBH={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+// Determinar mes actual
+function curMK(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);}
+var MES=new URLSearchParams(window.location.search).get('mes')||curMK();
+var MESES_ES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function mesFmt(mk){
+  var p=mk.split('-');
+  return MESES_ES[+p[1]-1]+' '+p[0];
+}
+
+// Chart defaults
+Chart.defaults.color='#64748b';
+Chart.defaults.borderColor='#1f2230';
+Chart.defaults.font.family='Inter';
+
+var chartCfgLine={
+  type:'line',
+  options:{
+    responsive:true,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:'#94a3b8',font:{size:11},boxWidth:12}},tooltip:{backgroundColor:'#161820',titleColor:'#f0f2f7',bodyColor:'#94a3b8',borderColor:'#1f2230',borderWidth:1}},
+    scales:{
+      x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1f2230'}},
+      y:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1f2230'},beginAtZero:true}
+    }
+  }
+};
+
+var chartCfgBar={
+  type:'bar',
+  options:{
+    responsive:true,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#161820',titleColor:'#f0f2f7',bodyColor:'#94a3b8',borderColor:'#1f2230',borderWidth:1}},
+    scales:{
+      x:{ticks:{color:'#64748b',font:{size:11}},grid:{display:false}},
+      y:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1f2230'},beginAtZero:true}
+    }
+  }
+};
+
+function semanaLabel(dk){
+  var p=dk.split('-');
+  var d=new Date(+p[0],+p[1]-1,+p[2]);
+  var sem=Math.ceil(d.getDate()/7);
+  return 'Sem '+sem+' ('+p[2]+'/'+p[1]+')';
+}
+
+function semanaNum(dk){
+  var p=dk.split('-');
+  return Math.ceil(+p[2]/7);
+}
+
+async function loadPick(){
+  var r=await fetch(SB_URL+'/rest/v1/picker_data?date_key=like.'+MES+'*&select=date_key,data&order=date_key.asc',{headers:SBH});
+  var rows=await r.json();
+  var db={};
+  rows.forEach(function(row){db[row.date_key]=row.data;});
+  return db;
+}
+
+async function loadCtl(){
+  var r=await fetch(SB_URL+'/rest/v1/control_data?id=like.'+MES+'*&select=id,data&order=id.asc',{headers:SBH});
+  var rows=await r.json();
+  var db={};
+  rows.forEach(function(row){Object.assign(db,row.data);});
+  return db;
+}
+
+function buildPickStats(db){
+  var days=Object.keys(db).sort();
+  var totalLineas=0,totalPickers=new Set(),allUsers={};
+  var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
+  var bySemana={}; // {sem: {TM:{sum,n},TT,TN}}
+
+  days.forEach(function(dk){
+    var day=db[dk];
+    var sem=semanaNum(dk);
+    if(!bySemana[sem])bySemana[sem]={TM:{sum:0,n:0},TT:{sum:0,n:0},TN:{sum:0,n:0},label:'Sem '+sem};
+    ['TM','TT','TN'].forEach(function(sh){
+      (day[sh]||[]).forEach(function(u){
+        totalLineas+=u.items||0;
+        totalPickers.add(u.user);
+        byTurno[sh].items+=(u.items||0);
+        byTurno[sh].n++;
+        bySemana[sem][sh].sum+=(u.items||0);
+        bySemana[sem][sh].n++;
+        if(!allUsers[u.user])allUsers[u.user]=0;
+        allUsers[u.user]+=(u.items||0);
+      });
+    });
+  });
+
+  return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,allUsers};
+}
+
+function buildCtlStats(db){
+  var days=Object.keys(db).sort();
+  var totalBultos=0,allUsers={};
+  var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
+  var bySemana={};
+
+  days.forEach(function(dk){
+    var day=db[dk];
+    var sem=semanaNum(dk);
+    if(!bySemana[sem])bySemana[sem]={TM:{sum:0,n:0},TT:{sum:0,n:0},TN:{sum:0,n:0},label:'Sem '+sem};
+    ['TM','TT','TN'].forEach(function(sh){
+      (day[sh]||[]).forEach(function(u){
+        totalBultos+=(u.items||0);
+        byTurno[sh].items+=(u.items||0);
+        byTurno[sh].n++;
+        bySemana[sem][sh].sum+=(u.items||0);
+        bySemana[sem][sh].n++;
+        var key=(u.cia||'?')+'|'+(u.user||'?');
+        if(!allUsers[key])allUsers[key]={user:u.user,cia:u.cia,items:0,unidades:0,target:u.target||200};
+        allUsers[key].items+=(u.items||0);
+        allUsers[key].unidades+=(u.unidades||0);
+      });
+    });
+  });
+
+  return{totalBultos,days:days.length,byTurno,bySemana,allUsers};
+}
+
+function mkKpi(lbl,val,sub,cls){
+  return'<div class="kpi '+(cls||'')+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div><div class="kpi-sub">'+sub+'</div></div>';
+}
+
+function mkBar(val,max,color){
+  var pct=max>0?Math.min(100,Math.round(val/max*100)):0;
+  return'<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span class="bar-val" style="color:'+color+'">'+val.toLocaleString('es-AR')+'</span></div>';
+}
+
+function semLabels(bySemana){
+  return Object.keys(bySemana).sort(function(a,b){return+a-+b;}).map(function(s){return bySemana[s].label;});
+}
+
+function semData(bySemana,sh){
+  return Object.keys(bySemana).sort(function(a,b){return+a-+b;}).map(function(s){
+    var d=bySemana[s][sh];
+    return d.n>0?Math.round(d.sum/d.n):null;
+  });
+}
+
+async function build(){
+  try{
+    var pickDb=await loadPick();
+    var ctlDb=await loadCtl();
+    var ps=buildPickStats(pickDb);
+    var cs=buildCtlStats(ctlDb);
+
+    // Cover
+    document.getElementById('coverMes').textContent=mesFmt(MES);
+    document.getElementById('coverTotalLineas').textContent=ps.totalLineas.toLocaleString('es-AR');
+    document.getElementById('coverTotalBultos').textContent=cs.totalBultos.toLocaleString('es-AR');
+    document.getElementById('coverDias').textContent=Math.max(ps.days,cs.days);
+    document.getElementById('coverPickers').textContent=ps.totalPickers;
+    document.getElementById('footFecha').textContent='Generado '+new Date().toLocaleDateString('es-AR');
+
+    // Pick KPIs
+    var avgTM=ps.byTurno.TM.n?Math.round(ps.byTurno.TM.items/ps.byTurno.TM.n):0;
+    var avgTT=ps.byTurno.TT.n?Math.round(ps.byTurno.TT.items/ps.byTurno.TT.n):0;
+    var avgTN=ps.byTurno.TN.n?Math.round(ps.byTurno.TN.items/ps.byTurno.TN.n):0;
+    var avgGen=Math.round(ps.totalLineas/Math.max(1,ps.byTurno.TM.n+ps.byTurno.TT.n+ps.byTurno.TN.n));
+    document.getElementById('pickKpis').innerHTML=
+      mkKpi('Promedio general',avgGen+' líneas','por operario por turno',avgGen>=200?'green':'red')+
+      mkKpi('Turno Mañana',avgTM+' líneas','promedio operario',avgTM>=200?'green':'red')+
+      mkKpi('Turno Tarde',avgTT+' líneas','promedio operario',avgTT>=200?'green':'red')+
+      mkKpi('Turno Noche',avgTN+' líneas','promedio operario',avgTN>=200?'green':'red')+
+      mkKpi('Total líneas',ps.totalLineas.toLocaleString('es-AR'),'pickeadas en el mes','orange');
+
+    // Pick chart semanal
+    var sems=semLabels(ps.bySemana);
+    new Chart(document.getElementById('chartPickSemanal'),{
+      type:'line',
+      data:{labels:sems,datasets:[
+        {label:'Mañana',data:semData(ps.bySemana,'TM'),borderColor:'#FF6B00',backgroundColor:'#FF6B0015',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Tarde',data:semData(ps.bySemana,'TT'),borderColor:'#3b82f6',backgroundColor:'#3b82f615',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Noche',data:semData(ps.bySemana,'TN'),borderColor:'#a78bfa',backgroundColor:'#a78bfa15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Objetivo (200)',data:sems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0}
+      ]},
+      options:JSON.parse(JSON.stringify(chartCfgLine.options))
+    });
+
+    // Pick chart turnos
+    new Chart(document.getElementById('chartPickTurnos'),{
+      type:'bar',
+      data:{labels:['Mañana 06-14','Tarde 14-22','Noche 22-06'],datasets:[{
+        data:[avgTM,avgTT,avgTN],
+        backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
+        borderColor:['#FF6B00','#3b82f6','#a78bfa'],
+        borderWidth:2,borderRadius:6
+      }]},
+      options:{...JSON.parse(JSON.stringify(chartCfgBar.options)),plugins:{...chartCfgBar.options.plugins,annotation:{annotations:{line:{type:'line',yMin:200,yMax:200,borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4]}}}}}
+    });
+
+    // Pick ranking
+    var ranked=Object.entries(ps.allUsers).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+    var maxL=ranked.length?ranked[0][1]:1;
+    document.getElementById('pickRanking').innerHTML=ranked.map(function(e,i){
+      var pct=Math.round(e[1]/200*100);
+      var color=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red)';
+      var pillCls=pct>=100?'pill-green':pct>=75?'pill-yellow':'pill-red';
+      return'<tr><td style="font-family:var(--mono);color:var(--muted)">'+(i+1)+'</td>'+
+        '<td style="font-weight:600">'+e[0]+'</td>'+
+        '<td>'+mkBar(e[1],maxL,color)+'</td>'+
+        '<td><span class="pill '+pillCls+'">'+pct+'%</span></td></tr>';
+    }).join('');
+
+    // CTL KPIs
+    var cAvgTM=cs.byTurno.TM.n?Math.round(cs.byTurno.TM.items/cs.byTurno.TM.n):0;
+    var cAvgTT=cs.byTurno.TT.n?Math.round(cs.byTurno.TT.items/cs.byTurno.TT.n):0;
+    var cAvgTN=cs.byTurno.TN.n?Math.round(cs.byTurno.TN.items/cs.byTurno.TN.n):0;
+    var cTotal=cs.byTurno.TM.n+cs.byTurno.TT.n+cs.byTurno.TN.n;
+    var cAvgGen=cTotal?Math.round(cs.totalBultos/cTotal):0;
+    document.getElementById('ctlKpis').innerHTML=
+      mkKpi('Promedio general',cAvgGen+' bultos','por operario por turno',cAvgGen>=200?'green':'red')+
+      mkKpi('Turno Mañana',cAvgTM+' bultos','promedio operario',cAvgTM>=200?'green':'red')+
+      mkKpi('Turno Tarde',cAvgTT+' bultos','promedio operario',cAvgTT>=200?'green':'red')+
+      mkKpi('Turno Noche',cAvgTN+' bultos','promedio operario',cAvgTN>=200?'green':'red')+
+      mkKpi('Total bultos',cs.totalBultos.toLocaleString('es-AR'),'controlados en el mes','orange');
+
+    // CTL chart semanal
+    var cSems=semLabels(cs.bySemana);
+    new Chart(document.getElementById('chartCtlSemanal'),{
+      type:'line',
+      data:{labels:cSems,datasets:[
+        {label:'Mañana',data:semData(cs.bySemana,'TM'),borderColor:'#FF6B00',backgroundColor:'#FF6B0015',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Tarde',data:semData(cs.bySemana,'TT'),borderColor:'#3b82f6',backgroundColor:'#3b82f615',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Noche',data:semData(cs.bySemana,'TN'),borderColor:'#a78bfa',backgroundColor:'#a78bfa15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Obj. FTW/EQP (200)',data:cSems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0},
+        {label:'Obj. APP (40)',data:cSems.map(function(){return 40;}),borderColor:'#f59e0b80',borderWidth:2,borderDash:[4,4],pointRadius:0,fill:false,tension:0}
+      ]},
+      options:JSON.parse(JSON.stringify(chartCfgLine.options))
+    });
+
+    // CTL chart turnos
+    new Chart(document.getElementById('chartCtlTurnos'),{
+      type:'bar',
+      data:{labels:['Mañana 06-14','Tarde 14-22','Noche 22-06'],datasets:[{
+        data:[cAvgTM,cAvgTT,cAvgTN],
+        backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
+        borderColor:['#FF6B00','#3b82f6','#a78bfa'],
+        borderWidth:2,borderRadius:6
+      }]},
+      options:JSON.parse(JSON.stringify(chartCfgBar.options))
+    });
+
+    // CTL ranking por CIA
+    var cRanked=Object.values(cs.allUsers).sort(function(a,b){return b.items-a.items;}).slice(0,12);
+    var maxB=cRanked.length?cRanked[0].items:1;
+    document.getElementById('ctlRanking').innerHTML=cRanked.map(function(u){
+      var t=u.target||200;
+      var pct=Math.round(u.items/t*100);
+      var color=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red)';
+      var pillCls=pct>=100?'pill-green':pct>=75?'pill-yellow':'pill-red';
+      return'<tr><td><span class="pill" style="background:var(--surface2);color:var(--muted2);border:1px solid var(--border)">'+u.cia+'</span></td>'+
+        '<td style="font-weight:600">'+u.user+'</td>'+
+        '<td style="color:var(--muted2);font-size:12px">'+(u.unidades||0).toLocaleString('es-AR')+'</td>'+
+        '<td>'+mkBar(u.items,maxB,color)+'</td>'+
+        '<td><span class="pill '+pillCls+'">'+pct+'%</span></td></tr>';
+    }).join('');
+
+    document.getElementById('loadingScreen').style.display='none';
+    document.getElementById('report').style.display='block';
+
+  }catch(e){
+    document.getElementById('loadingScreen').innerHTML='<div style="color:var(--red)">Error cargando datos: '+e.message+'</div>';
+  }
+}
+
+build();
+</script>
+</body>
+</html>
