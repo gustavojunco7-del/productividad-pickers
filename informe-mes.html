@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
@@ -174,10 +174,36 @@ tr:hover td{background:#ffffff04}
     </div>
     <div class="tbl-card">
       <div class="tbl-hdr"><span>Ranking de operarios</span><span style="font-size:10px;color:var(--muted)">Top 10 por líneas totales</span></div>
-      <table><thead><tr><th>#</th><th>Operario</th><th>Líneas</th><th>vs Target</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Operario</th><th>Prom/turno</th><th>vs Target</th></tr></thead>
       <tbody id="pickRanking"></tbody></table>
     </div>
   </div>
+
+  <!-- Quincenas + Efectivos -->
+  <div class="grid-2" style="margin-top:16px">
+    <div class="chart-card">
+      <div class="chart-hdr"><div class="chart-title">Primera vs Segunda quincena</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:8px 0">
+        <div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">1–15 del mes</div>
+        <div style="font-size:26px;font-weight:800;font-family:var(--mono)" id="pickQ1">—</div></div>
+        <div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">16–fin del mes</div>
+        <div style="font-size:26px;font-weight:800;font-family:var(--mono)" id="pickQ2">—</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;font-weight:600" id="pickTendencia"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-hdr"><div class="chart-title">Efectivos vs Contratados</div></div>
+      <div id="pickEfectivos"></div>
+    </div>
+  </div>
+
+  <!-- Consistencia -->
+  <div class="tbl-card" style="margin-top:16px">
+    <div class="tbl-hdr"><span>Consistencia por operario</span><span style="font-size:10px;color:var(--muted2)">Qué tan parejo rinde cada uno · mín. 3 turnos</span></div>
+    <table><thead><tr><th>Operario</th><th>Prom/turno</th><th>Desvío</th><th>Consistencia</th></tr></thead>
+    <tbody id="pickConsistencia"></tbody></table>
+  </div>
+
 </div>
 
 <!-- MESA CONTROL -->
@@ -205,9 +231,21 @@ tr:hover td{background:#ffffff04}
       <canvas id="chartCtlTurnos" height="140"></canvas>
     </div>
     <div class="tbl-card">
-      <div class="tbl-hdr"><span>Ranking por CIA</span><span style="font-size:10px;color:var(--muted)">Bultos totales</span></div>
-      <table><thead><tr><th>CIA</th><th>Operario</th><th>Unidades</th><th>Bultos</th><th>% Target</th></tr></thead>
+      <div class="tbl-hdr"><span>Ranking por CIA</span><span style="font-size:10px;color:var(--muted)">Promedio por turno</span></div>
+      <table><thead><tr><th>CIA</th><th>Operario</th><th>Unidades</th><th>Prom/turno</th><th>vs Target</th></tr></thead>
       <tbody id="ctlRanking"></tbody></table>
+    </div>
+  </div>
+
+  <!-- Quincenas CTL -->
+  <div class="chart-card" style="margin-top:16px">
+    <div class="chart-hdr"><div class="chart-title">Primera vs Segunda quincena — Mesa Control</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:24px;align-items:center;padding:8px 0">
+      <div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">1–15 del mes</div>
+      <div style="font-size:26px;font-weight:800;font-family:var(--mono)" id="ctlQ1">—</div></div>
+      <div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">16–fin del mes</div>
+      <div style="font-size:26px;font-weight:800;font-family:var(--mono)" id="ctlQ2">—</div></div>
+      <div style="font-size:12px;font-weight:600;max-width:200px" id="ctlTendencia"></div>
     </div>
   </div>
   </div>
@@ -299,27 +337,51 @@ function buildPickStats(db){
   var days=Object.keys(db).sort();
   var totalLineas=0,totalPickers=new Set(),allUsers={};
   var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
-  var bySemana={}; // {sem: {TM:{sum,n},TT,TN}}
+  var bySemana={};
+  var byHora={}; // {hora: {items,n}}
+  var q1Items=0,q1n=0,q2Items=0,q2n=0; // quincenas
 
   days.forEach(function(dk){
     var day=db[dk];
-    var sem=semanaNum(dk);
+    var sem=Math.ceil(+dk.split('-')[2]/7);
+    var dayNum=+dk.split('-')[2];
+    var isQ2=dayNum>15;
     if(!bySemana[sem])bySemana[sem]={TM:{sum:0,n:0},TT:{sum:0,n:0},TN:{sum:0,n:0},label:'Sem '+sem};
     ['TM','TT','TN'].forEach(function(sh){
       (day[sh]||[]).forEach(function(u){
-        totalLineas+=u.items||0;
+        var items=u.items||0;
+        totalLineas+=items;
         totalPickers.add(u.user);
-        byTurno[sh].items+=(u.items||0);
+        byTurno[sh].items+=items;
         byTurno[sh].n++;
-        bySemana[sem][sh].sum+=(u.items||0);
+        bySemana[sem][sh].sum+=items;
         bySemana[sem][sh].n++;
-        if(!allUsers[u.user])allUsers[u.user]=0;
-        allUsers[u.user]+=(u.items||0);
+        if(isQ2){q2Items+=items;q2n++;}else{q1Items+=items;q1n++;}
+        if(!allUsers[u.user])allUsers[u.user]={items:0,turnos:0,turnoItems:[],isEfectivo:!/^nikepick/i.test(u.user)};
+        allUsers[u.user].items+=items;
+        allUsers[u.user].turnos++;
+        allUsers[u.user].turnoItems.push(items);
+        // Hora pico según turno
+        var horaKey={TM:'06-14',TT:'14-22',TN:'22-06'}[sh];
+        if(!byHora[horaKey])byHora[horaKey]={items:0,n:0};
+        byHora[horaKey].items+=items;
+        byHora[horaKey].n++;
       });
     });
   });
 
-  return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,allUsers};
+  // Consistencia: desvío estándar por operario
+  Object.keys(allUsers).forEach(function(u){
+    var arr=allUsers[u].turnoItems;
+    var avg=allUsers[u].items/allUsers[u].turnos;
+    var variance=arr.reduce(function(s,v){return s+Math.pow(v-avg,2);},0)/arr.length;
+    allUsers[u].avg=Math.round(avg);
+    allUsers[u].std=Math.round(Math.sqrt(variance));
+    allUsers[u].consistency=avg>0?Math.max(0,Math.round((1-Math.sqrt(variance)/avg)*100)):0;
+  });
+
+  return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,byHora,allUsers,
+    q1Avg:q1n?Math.round(q1Items/q1n):0,q2Avg:q2n?Math.round(q2Items/q2n):0};
 }
 
 function buildCtlStats(db){
@@ -327,10 +389,13 @@ function buildCtlStats(db){
   var totalBultos=0,allUsers={};
   var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
   var bySemana={};
+  var q1Items=0,q1n=0,q2Items=0,q2n=0;
 
   days.forEach(function(dk){
     var day=db[dk];
-    var sem=semanaNum(dk);
+    var sem=Math.ceil(+dk.split('-')[2]/7);
+    var dayNum=+dk.split('-')[2];
+    var isQ2=dayNum>15;
     if(!bySemana[sem])bySemana[sem]={TM:{sum:0,n:0},TT:{sum:0,n:0},TN:{sum:0,n:0},label:'Sem '+sem};
     ['TM','TT','TN'].forEach(function(sh){
       (day[sh]||[]).forEach(function(u){
@@ -339,15 +404,26 @@ function buildCtlStats(db){
         byTurno[sh].n++;
         bySemana[sem][sh].sum+=(u.items||0);
         bySemana[sem][sh].n++;
+        if(isQ2){q2Items+=(u.items||0);q2n++;}else{q1Items+=(u.items||0);q1n++;}
         var key=(u.cia||'?')+'|'+(u.user||'?');
-        if(!allUsers[key])allUsers[key]={user:u.user,cia:u.cia,items:0,unidades:0,target:u.target||200};
+        if(!allUsers[key])allUsers[key]={user:u.user,cia:u.cia,items:0,unidades:0,target:u.target||200,turnos:0,turnoItems:[]};
         allUsers[key].items+=(u.items||0);
         allUsers[key].unidades+=(u.unidades||0);
+        allUsers[key].turnos++;
+        allUsers[key].turnoItems.push(u.items||0);
       });
     });
   });
 
-  return{totalBultos,days:days.length,byTurno,bySemana,allUsers};
+  Object.keys(allUsers).forEach(function(k){
+    var u=allUsers[k];
+    u.avg=u.turnos?Math.round(u.items/u.turnos):0;
+    var variance=u.turnoItems.reduce(function(s,v){return s+Math.pow(v-u.avg,2);},0)/Math.max(1,u.turnoItems.length);
+    u.std=Math.round(Math.sqrt(variance));
+  });
+
+  return{totalBultos,days:days.length,byTurno,bySemana,allUsers,
+    q1Avg:q1n?Math.round(q1Items/q1n):0,q2Avg:q2n?Math.round(q2Items/q2n):0};
 }
 
 function mkKpi(lbl,val,sub,cls){
@@ -362,11 +438,9 @@ function mkBar(val,max,color){
 function semLabels(bySemana){
   return Object.keys(bySemana).sort(function(a,b){return+a-+b;}).map(function(s){return bySemana[s].label;});
 }
-
 function semData(bySemana,sh){
   return Object.keys(bySemana).sort(function(a,b){return+a-+b;}).map(function(s){
-    var d=bySemana[s][sh];
-    return d.n>0?Math.round(d.sum/d.n):null;
+    var d=bySemana[s][sh];return d.n>0?Math.round(d.sum/d.n):null;
   });
 }
 
@@ -385,19 +459,36 @@ async function build(){
     document.getElementById('coverPickers').textContent=ps.totalPickers;
     document.getElementById('footFecha').textContent='Generado '+new Date().toLocaleDateString('es-AR');
 
-    // Pick KPIs
+    // ── PICKERS ──
     var avgTM=ps.byTurno.TM.n?Math.round(ps.byTurno.TM.items/ps.byTurno.TM.n):0;
     var avgTT=ps.byTurno.TT.n?Math.round(ps.byTurno.TT.items/ps.byTurno.TT.n):0;
     var avgTN=ps.byTurno.TN.n?Math.round(ps.byTurno.TN.items/ps.byTurno.TN.n):0;
-    var avgGen=Math.round(ps.totalLineas/Math.max(1,ps.byTurno.TM.n+ps.byTurno.TT.n+ps.byTurno.TN.n));
+    var totalTurnos=ps.byTurno.TM.n+ps.byTurno.TT.n+ps.byTurno.TN.n;
+    var avgGen=totalTurnos?Math.round(ps.totalLineas/totalTurnos):0;
+    var q1q2Arrow=ps.q2Avg>ps.q1Avg?'▲':'▼';
+    var q1q2Color=ps.q2Avg>ps.q1Avg?'var(--green)':'var(--red)';
+    var q1q2Diff=Math.abs(ps.q2Avg-ps.q1Avg);
+
+    // % cumplimiento: operarios que llegan a 200 promedio
+    var pickUsers=Object.values(ps.allUsers);
+    var cumplieron=pickUsers.filter(function(u){return u.avg>=200;}).length;
+    var pctCumpl=pickUsers.length?Math.round(cumplieron/pickUsers.length*100):0;
+
+    // Efectivos vs nikepick
+    var efectivos=pickUsers.filter(function(u){return u.isEfectivo;});
+    var nikepicks=pickUsers.filter(function(u){return!u.isEfectivo;});
+    var avgEfectivo=efectivos.length?Math.round(efectivos.reduce(function(s,u){return s+u.avg;},0)/efectivos.length):0;
+    var avgNikepick=nikepicks.length?Math.round(nikepicks.reduce(function(s,u){return s+u.avg;},0)/nikepicks.length):0;
+
     document.getElementById('pickKpis').innerHTML=
       mkKpi('Promedio general',avgGen+' líneas','por operario por turno',avgGen>=200?'green':'red')+
-      mkKpi('Turno Mañana',avgTM+' líneas','promedio operario',avgTM>=200?'green':'red')+
-      mkKpi('Turno Tarde',avgTT+' líneas','promedio operario',avgTT>=200?'green':'red')+
-      mkKpi('Turno Noche',avgTN+' líneas','promedio operario',avgTN>=200?'green':'red')+
+      mkKpi('Turno Mañana',avgTM+' líneas','promedio por turno',avgTM>=200?'green':'red')+
+      mkKpi('Turno Tarde',avgTT+' líneas','promedio por turno',avgTT>=200?'green':'red')+
+      mkKpi('Turno Noche',avgTN+' líneas','promedio por turno',avgTN>=200?'green':'red')+
+      mkKpi('Operarios al target',pctCumpl+'%',cumplieron+' de '+pickUsers.length+' llegan a 200',pctCumpl>=70?'green':'red')+
       mkKpi('Total líneas',ps.totalLineas.toLocaleString('es-AR'),'pickeadas en el mes','orange');
 
-    // Pick chart semanal
+    // Chart semanal pickers
     var sems=semLabels(ps.bySemana);
     new Chart(document.getElementById('chartPickSemanal'),{
       type:'line',
@@ -410,45 +501,79 @@ async function build(){
       options:JSON.parse(JSON.stringify(chartCfgLine.options))
     });
 
-    // Pick chart turnos
+    // Chart turnos pickers
     new Chart(document.getElementById('chartPickTurnos'),{
       type:'bar',
-      data:{labels:['Mañana 06-14','Tarde 14-22','Noche 22-06'],datasets:[{
+      data:{labels:['Mañana','Tarde','Noche'],datasets:[{
         data:[avgTM,avgTT,avgTN],
         backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
         borderColor:['#FF6B00','#3b82f6','#a78bfa'],
         borderWidth:2,borderRadius:6
       }]},
-      options:{...JSON.parse(JSON.stringify(chartCfgBar.options)),plugins:{...chartCfgBar.options.plugins,annotation:{annotations:{line:{type:'line',yMin:200,yMax:200,borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4]}}}}}
+      options:JSON.parse(JSON.stringify(chartCfgBar.options))
     });
 
-    // Pick ranking
-    var ranked=Object.entries(ps.allUsers).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
-    var maxL=ranked.length?ranked[0][1]:1;
-    document.getElementById('pickRanking').innerHTML=ranked.map(function(e,i){
-      var pct=Math.round(e[1]/200*100);
+    // Ranking pickers — por promedio por turno (no total)
+    var ranked=pickUsers.sort(function(a,b){return b.avg-a.avg;}).slice(0,10);
+    document.getElementById('pickRanking').innerHTML=ranked.map(function(u,i){
+      var pct=Math.round(u.avg/200*100);
       var color=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red)';
       var pillCls=pct>=100?'pill-green':pct>=75?'pill-yellow':'pill-red';
+      var badge=u.isEfectivo?'<span class="pill" style="background:#06b6d420;color:#06b6d4;border:1px solid #06b6d430;margin-left:6px">EFT</span>':'';
       return'<tr><td style="font-family:var(--mono);color:var(--muted)">'+(i+1)+'</td>'+
-        '<td style="font-weight:600">'+e[0]+'</td>'+
-        '<td>'+mkBar(e[1],maxL,color)+'</td>'+
+        '<td style="font-weight:600">'+u.user+badge+'</td>'+
+        '<td style="font-family:var(--mono);font-size:12px;color:var(--muted2)">'+u.avg+' avg / '+u.turnos+' turnos</td>'+
         '<td><span class="pill '+pillCls+'">'+pct+'%</span></td></tr>';
     }).join('');
 
-    // CTL KPIs
+    // Consistencia pickers
+    var consistRanked=pickUsers.filter(function(u){return u.turnos>=3;}).sort(function(a,b){return b.consistency-a.consistency;}).slice(0,8);
+    document.getElementById('pickConsistencia').innerHTML=consistRanked.map(function(u,i){
+      var color=u.consistency>=80?'var(--green)':u.consistency>=60?'var(--yellow)':'var(--red)';
+      return'<tr><td style="font-weight:600">'+u.user+'</td>'+
+        '<td style="font-family:var(--mono)">'+u.avg+'</td>'+
+        '<td style="font-family:var(--mono);color:var(--muted2)">±'+u.std+'</td>'+
+        '<td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+u.consistency+'%;background:'+color+'"></div></div>'+
+        '<span class="bar-val" style="color:'+color+'">'+u.consistency+'%</span></div></td></tr>';
+    }).join('');
+
+    // Quincenas pickers
+    document.getElementById('pickQ1').textContent=ps.q1Avg+' líneas';
+    document.getElementById('pickQ2').innerHTML=ps.q2Avg+' líneas <span style="color:'+q1q2Color+';font-size:14px">'+q1q2Arrow+' '+q1q2Diff+'</span>';
+    document.getElementById('pickTendencia').textContent=ps.q2Avg>ps.q1Avg?'El equipo mejoró en la segunda quincena.':'El equipo bajó en la segunda quincena.';
+    document.getElementById('pickTendencia').style.color=q1q2Color;
+
+    // Efectivos vs nikepick
+    document.getElementById('pickEfectivos').innerHTML=
+      '<div style="display:flex;gap:24px;align-items:center">'+
+      '<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px">Efectivos ('+efectivos.length+')</div>'+
+      '<div style="font-size:28px;font-weight:800;color:#06b6d4;font-family:var(--mono)">'+avgEfectivo+'</div>'+
+      '<div style="font-size:11px;color:var(--muted2)">líneas prom/turno</div></div>'+
+      '<div style="font-size:24px;color:var(--border)">vs</div>'+
+      '<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px">Contratados ('+nikepicks.length+')</div>'+
+      '<div style="font-size:28px;font-weight:800;color:var(--orange);font-family:var(--mono)">'+avgNikepick+'</div>'+
+      '<div style="font-size:11px;color:var(--muted2)">líneas prom/turno</div></div>'+
+      (efectivos.length?'<div style="font-size:12px;color:var(--muted2);max-width:180px">'+
+      (avgEfectivo>=avgNikepick?'Los efectivos rinden al mismo nivel que los contratados.':'Los efectivos están en proceso de alcanzar el nivel del equipo contratado.')+
+      '</div>':'')+'</div>';
+
+    // ── MESA CONTROL ──
     var cAvgTM=cs.byTurno.TM.n?Math.round(cs.byTurno.TM.items/cs.byTurno.TM.n):0;
     var cAvgTT=cs.byTurno.TT.n?Math.round(cs.byTurno.TT.items/cs.byTurno.TT.n):0;
     var cAvgTN=cs.byTurno.TN.n?Math.round(cs.byTurno.TN.items/cs.byTurno.TN.n):0;
     var cTotal=cs.byTurno.TM.n+cs.byTurno.TT.n+cs.byTurno.TN.n;
     var cAvgGen=cTotal?Math.round(cs.totalBultos/cTotal):0;
+    var cQ1Q2Arrow=cs.q2Avg>cs.q1Avg?'▲':'▼';
+    var cQ1Q2Color=cs.q2Avg>cs.q1Avg?'var(--green)':'var(--red)';
+    var cQ1Q2Diff=Math.abs(cs.q2Avg-cs.q1Avg);
+
     document.getElementById('ctlKpis').innerHTML=
       mkKpi('Promedio general',cAvgGen+' bultos','por operario por turno',cAvgGen>=200?'green':'red')+
-      mkKpi('Turno Mañana',cAvgTM+' bultos','promedio operario',cAvgTM>=200?'green':'red')+
-      mkKpi('Turno Tarde',cAvgTT+' bultos','promedio operario',cAvgTT>=200?'green':'red')+
-      mkKpi('Turno Noche',cAvgTN+' bultos','promedio operario',cAvgTN>=200?'green':'red')+
+      mkKpi('Turno Mañana',cAvgTM+' bultos','promedio por turno',cAvgTM>=200?'green':'red')+
+      mkKpi('Turno Tarde',cAvgTT+' bultos','promedio por turno',cAvgTT>=200?'green':'red')+
+      mkKpi('Turno Noche',cAvgTN+' bultos','promedio por turno',cAvgTN>=200?'green':'red')+
       mkKpi('Total bultos',cs.totalBultos.toLocaleString('es-AR'),'controlados en el mes','orange');
 
-    // CTL chart semanal
     var cSems=semLabels(cs.bySemana);
     new Chart(document.getElementById('chartCtlSemanal'),{
       type:'line',
@@ -462,10 +587,9 @@ async function build(){
       options:JSON.parse(JSON.stringify(chartCfgLine.options))
     });
 
-    // CTL chart turnos
     new Chart(document.getElementById('chartCtlTurnos'),{
       type:'bar',
-      data:{labels:['Mañana 06-14','Tarde 14-22','Noche 22-06'],datasets:[{
+      data:{labels:['Mañana','Tarde','Noche'],datasets:[{
         data:[cAvgTM,cAvgTT,cAvgTN],
         backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
         borderColor:['#FF6B00','#3b82f6','#a78bfa'],
@@ -474,30 +598,37 @@ async function build(){
       options:JSON.parse(JSON.stringify(chartCfgBar.options))
     });
 
-    // CTL ranking por CIA
-    var cRanked=Object.values(cs.allUsers).sort(function(a,b){return b.items-a.items;}).slice(0,12);
-    var maxB=cRanked.length?cRanked[0].items:1;
+    var cRanked=Object.values(cs.allUsers).sort(function(a,b){return b.avg-a.avg;}).slice(0,12);
+    var maxB=cRanked.length?cRanked[0].avg:1;
     document.getElementById('ctlRanking').innerHTML=cRanked.map(function(u){
-      var t=u.target||200;
-      var pct=Math.round(u.items/t*100);
+      var pct=Math.round(u.avg/(u.target||200)*100);
       var color=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red)';
       var pillCls=pct>=100?'pill-green':pct>=75?'pill-yellow':'pill-red';
       return'<tr><td><span class="pill" style="background:var(--surface2);color:var(--muted2);border:1px solid var(--border)">'+u.cia+'</span></td>'+
         '<td style="font-weight:600">'+u.user+'</td>'+
         '<td style="color:var(--muted2);font-size:12px">'+(u.unidades||0).toLocaleString('es-AR')+'</td>'+
-        '<td>'+mkBar(u.items,maxB,color)+'</td>'+
+        '<td style="font-family:var(--mono)">'+u.avg+'</td>'+
         '<td><span class="pill '+pillCls+'">'+pct+'%</span></td></tr>';
     }).join('');
+
+    // Quincenas CTL
+    document.getElementById('ctlQ1').textContent=cs.q1Avg+' bultos';
+    document.getElementById('ctlQ2').innerHTML=cs.q2Avg+' bultos <span style="color:'+cQ1Q2Color+';font-size:14px">'+cQ1Q2Arrow+' '+cQ1Q2Diff+'</span>';
+    document.getElementById('ctlTendencia').textContent=cs.q2Avg>cs.q1Avg?'La mesa mejoró en la segunda quincena.':'La mesa bajó en la segunda quincena.';
+    document.getElementById('ctlTendencia').style.color=cQ1Q2Color;
 
     document.getElementById('loadingScreen').style.display='none';
     document.getElementById('report').style.display='block';
 
   }catch(e){
-    document.getElementById('loadingScreen').innerHTML='<div style="color:var(--red)">Error cargando datos: '+e.message+'</div>';
+    document.getElementById('loadingScreen').innerHTML='<div style="color:var(--red)">Error: '+e.message+'</div>';
+    console.error(e);
   }
 }
 
 build();
+
+
 </script>
 </body>
 </html>
