@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
@@ -357,7 +357,7 @@ function buildPickStats(db){
         bySemana[sem][sh].sum+=items;
         bySemana[sem][sh].n++;
         if(isQ2){q2Items+=items;q2n++;}else{q1Items+=items;q1n++;}
-        if(!allUsers[u.user])allUsers[u.user]={items:0,turnos:0,turnoItems:[],isEfectivo:!/^nikepick/i.test(u.user)};
+        if(!allUsers[u.user])allUsers[u.user]={user:u.user,items:0,turnos:0,turnoItems:[],isEfectivo:!/^nikepick/i.test(u.user)};
         allUsers[u.user].items+=items;
         allUsers[u.user].turnos++;
         allUsers[u.user].turnoItems.push(items);
