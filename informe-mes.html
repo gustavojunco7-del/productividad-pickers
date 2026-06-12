@@ -228,18 +228,24 @@ tr:hover td{background:var(--surface)}
     <canvas id="chartCtlSemanal" height="80"></canvas>
   </div>
 
-  <div class="grid-2">
-    <div class="chart-card">
-      <div class="chart-hdr">
-        <div class="chart-title">Promedio por turno — mes completo</div>
-      </div>
-      <canvas id="chartCtlTurnos" height="140"></canvas>
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div class="chart-title">Promedio por turno — mes completo</div>
     </div>
-    <div class="tbl-card">
-      <div class="tbl-hdr"><span>Ranking por CIA</span><span style="font-size:10px;color:var(--muted)">Promedio por turno</span></div>
-      <table><thead><tr><th>CIA</th><th>Operario</th><th>Unidades</th><th>Prom/turno</th><th>vs Target</th></tr></thead>
-      <tbody id="ctlRanking"></tbody></table>
-    </div>
+    <canvas id="chartCtlTurnos" height="60"></canvas>
+  </div>
+
+  <!-- CIA cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px" id="ctlCiaKpisGrid">
+    <div class="kpi" id="ctlCiaFTW"><div class="kpi-lbl">FTW · Footwear</div><div class="kpi-val">—</div></div>
+    <div class="kpi" id="ctlCiaEQP"><div class="kpi-lbl">EQP · Equipment</div><div class="kpi-val">—</div></div>
+    <div class="kpi" id="ctlCiaAPP"><div class="kpi-lbl">APP · Apparel</div><div class="kpi-val">—</div></div>
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-hdr"><span>Ranking por CIA</span><span style="font-size:10px;color:var(--muted)">Promedio por turno</span></div>
+    <table><thead><tr><th>CIA</th><th>Operario</th><th>Unidades</th><th>Prom/turno</th><th>vs Target</th></tr></thead>
+    <tbody id="ctlRanking"></tbody></table>
   </div>
 
   <!-- Quincenas CTL -->
@@ -584,31 +590,25 @@ async function build(){
 
 
     // Cards por CIA
-    var ciaTargets={FTW:200,EQP:200,APP:40};
-    var ciaLabels={FTW:'FTW · Footwear',EQP:'EQP · Equipment',APP:'APP · Apparel'};
-    document.getElementById('ctlCiaKpis').innerHTML=['FTW','EQP','APP'].map(function(cia){
+    var ciaTargets2={FTW:200,EQP:200,APP:40};
+    var ciaIds={FTW:'ctlCiaFTW',EQP:'ctlCiaEQP',APP:'ctlCiaAPP'};
+    ['FTW','EQP','APP'].forEach(function(cia){
       var d=(cs.byCIA&&cs.byCIA[cia])||{items:0,n:0};
       var avg=d.n?Math.round(d.items/d.n):0;
-      var target=ciaTargets[cia];
+      var target=ciaTargets2[cia];
       var pct=target?Math.round(avg/target*100):0;
       var cls=pct>=100?'green':pct>=75?'':'red';
       var pctColor=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red-kpi)';
-      return '<div class="kpi '+cls+'" style="border-top-width:3px"><div class="kpi-lbl">'+ciaLabels[cia]+'</div>'+
-        '<div class="kpi-val">'+avg+' <span style="font-size:16px;font-weight:600">bultos/turno</span></div>'+
-        '<div style="display:flex;justify-content:space-between;margin-top:8px"><span class="kpi-sub">Target: '+target+'</span>'+
-        '<span style="font-size:18px;font-weight:800;color:'+pctColor+'">'+pct+'%</span></div></div>';
-    }).join('');
-    var cSems=semLabels(cs.bySemana);
-    new Chart(document.getElementById('chartCtlSemanal'),{
-      type:'line',
-      data:{labels:cSems,datasets:[
-        {label:'Mañana',data:semData(cs.bySemana,'TM'),borderColor:'#E31E24',backgroundColor:'#E31E2415',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Tarde',data:semData(cs.bySemana,'TT'),borderColor:'#1A2B5E',backgroundColor:'#1A2B5E15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Noche',data:semData(cs.bySemana,'TN'),borderColor:'#64748b',backgroundColor:'#64748b15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Obj. FTW/EQP (200)',data:cSems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0},
-        {label:'Obj. APP (40)',data:cSems.map(function(){return 40;}),borderColor:'#64748b80',borderWidth:2,borderDash:[4,4],pointRadius:0,fill:false,tension:0}
-      ]},
-      options:JSON.parse(JSON.stringify(chartCfgLine.options))
+      var ciaNames={FTW:'FTW · Footwear',EQP:'EQP · Equipment',APP:'APP · Apparel'};
+      var el=document.getElementById(ciaIds[cia]);
+      if(el){
+        el.className='kpi '+cls;el.style.borderTopWidth='3px';
+        el.innerHTML='<div class="kpi-lbl">'+ciaNames[cia]+'</div>'+
+          '<div class="kpi-val">'+avg+' <span style="font-size:16px;font-weight:600">bultos/turno</span></div>'+
+          '<div style="display:flex;justify-content:space-between;margin-top:8px">'+
+          '<span class="kpi-sub">Target: '+target+'</span>'+
+          '<span style="font-size:18px;font-weight:800;color:'+pctColor+'">'+pct+'%</span></div>';
+      }
     });
 
     new Chart(document.getElementById('chartCtlTurnos'),{
