@@ -217,6 +217,9 @@ tr:hover td{background:var(--surface)}
 
   <div class="kpi-row" id="ctlKpis"></div>
 
+  <!-- Cards por CIA -->
+  <div class="kpi-row" id="ctlCiaKpis" style="grid-template-columns:repeat(3,1fr)"></div>
+
   <div class="chart-card">
     <div class="chart-hdr">
       <div class="chart-title">Evolución semanal — Bultos promedio por operario por turno</div>
@@ -391,6 +394,7 @@ function buildCtlStats(db){
   var totalBultos=0,allUsers={};
   var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
   var bySemana={};
+  var byCIA={FTW:{items:0,n:0},EQP:{items:0,n:0},APP:{items:0,n:0}};
   var q1Items=0,q1n=0,q2Items=0,q2n=0;
 
   days.forEach(function(dk){
@@ -407,6 +411,8 @@ function buildCtlStats(db){
         bySemana[sem][sh].sum+=(u.items||0);
         bySemana[sem][sh].n++;
         if(isQ2){q2Items+=(u.items||0);q2n++;}else{q1Items+=(u.items||0);q1n++;}
+        var c=u.cia||'FTW';
+        if(byCIA[c]){byCIA[c].items+=(u.items||0);byCIA[c].n++;}
         var key=(u.cia||'?')+'|'+(u.user||'?');
         if(!allUsers[key])allUsers[key]={user:u.user,cia:u.cia,items:0,unidades:0,target:u.target||200,turnos:0,turnoItems:[]};
         allUsers[key].items+=(u.items||0);
@@ -424,7 +430,7 @@ function buildCtlStats(db){
     u.std=Math.round(Math.sqrt(variance));
   });
 
-  return{totalBultos,days:days.length,byTurno,bySemana,allUsers,
+  return{totalBultos,days:days.length,byTurno,bySemana,byCIA,allUsers,
     q1Avg:q1n?Math.round(q1Items/q1n):0,q2Avg:q2n?Math.round(q2Items/q2n):0};
 }
 
@@ -576,6 +582,22 @@ async function build(){
       mkKpi('Turno Noche',cAvgTN+' bultos','promedio por turno',cAvgTN>=200?'green':'red')+
       mkKpi('Total bultos',cs.totalBultos.toLocaleString('es-AR'),'controlados en el mes','orange');
 
+
+    // Cards por CIA
+    var ciaTargets={FTW:200,EQP:200,APP:40};
+    var ciaLabels={FTW:'FTW · Footwear',EQP:'EQP · Equipment',APP:'APP · Apparel'};
+    document.getElementById('ctlCiaKpis').innerHTML=['FTW','EQP','APP'].map(function(cia){
+      var d=(cs.byCIA&&cs.byCIA[cia])||{items:0,n:0};
+      var avg=d.n?Math.round(d.items/d.n):0;
+      var target=ciaTargets[cia];
+      var pct=target?Math.round(avg/target*100):0;
+      var cls=pct>=100?'green':pct>=75?'':'red';
+      var pctColor=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red-kpi)';
+      return '<div class="kpi '+cls+'" style="border-top-width:3px"><div class="kpi-lbl">'+ciaLabels[cia]+'</div>'+
+        '<div class="kpi-val">'+avg+' <span style="font-size:16px;font-weight:600">bultos/turno</span></div>'+
+        '<div style="display:flex;justify-content:space-between;margin-top:8px"><span class="kpi-sub">Target: '+target+'</span>'+
+        '<span style="font-size:18px;font-weight:800;color:'+pctColor+'">'+pct+'%</span></div></div>';
+    }).join('');
     var cSems=semLabels(cs.bySemana);
     new Chart(document.getElementById('chartCtlSemanal'),{
       type:'line',
