@@ -495,9 +495,9 @@ async function build(){
     new Chart(document.getElementById('chartPickSemanal'),{
       type:'line',
       data:{labels:sems,datasets:[
-        {label:'Mañana',data:semData(ps.bySemana,'TM'),borderColor:'#FF6B00',backgroundColor:'#FF6B0015',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Tarde',data:semData(ps.bySemana,'TT'),borderColor:'#3b82f6',backgroundColor:'#3b82f615',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Noche',data:semData(ps.bySemana,'TN'),borderColor:'#a78bfa',backgroundColor:'#a78bfa15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Mañana',data:semData(ps.bySemana,'TM'),borderColor:'#E31E24',backgroundColor:'#E31E2415',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Tarde',data:semData(ps.bySemana,'TT'),borderColor:'#1A2B5E',backgroundColor:'#1A2B5E15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Noche',data:semData(ps.bySemana,'TN'),borderColor:'#64748b',backgroundColor:'#64748b15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
         {label:'Objetivo (200)',data:sems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0}
       ]},
       options:JSON.parse(JSON.stringify(chartCfgLine.options))
@@ -508,8 +508,8 @@ async function build(){
       type:'bar',
       data:{labels:['Mañana','Tarde','Noche'],datasets:[{
         data:[avgTM,avgTT,avgTN],
-        backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
-        borderColor:['#FF6B00','#3b82f6','#a78bfa'],
+        backgroundColor:['#E31E2490','#1A2B5E90','#64748b90'],
+        borderColor:['#E31E24','#1A2B5E','#64748b'],
         borderWidth:2,borderRadius:6
       }]},
       options:JSON.parse(JSON.stringify(chartCfgBar.options))
@@ -521,7 +521,7 @@ async function build(){
       var pct=Math.round(u.avg/200*100);
       var color=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red)';
       var pillCls=pct>=100?'pill-green':pct>=75?'pill-yellow':'pill-red';
-      var badge=u.isEfectivo?'<span class="pill" style="background:#06b6d420;color:#06b6d4;border:1px solid #06b6d430;margin-left:6px">EFT</span>':'';
+      var badge=u.isEfectivo?'<span class="pill" style="background:#1A2B5E15;color:#1A2B5E;border:1px solid #1A2B5E30;margin-left:6px">EFT</span>':'';
       return'<tr><td style="font-family:var(--mono);color:var(--muted)">'+(i+1)+'</td>'+
         '<td style="font-weight:600">'+u.user+badge+'</td>'+
         '<td style="font-family:var(--mono);font-size:12px;color:var(--muted2)">'+u.avg+' avg / '+u.turnos+' turnos</td>'+
@@ -580,11 +580,11 @@ async function build(){
     new Chart(document.getElementById('chartCtlSemanal'),{
       type:'line',
       data:{labels:cSems,datasets:[
-        {label:'Mañana',data:semData(cs.bySemana,'TM'),borderColor:'#FF6B00',backgroundColor:'#FF6B0015',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Tarde',data:semData(cs.bySemana,'TT'),borderColor:'#3b82f6',backgroundColor:'#3b82f615',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
-        {label:'Noche',data:semData(cs.bySemana,'TN'),borderColor:'#a78bfa',backgroundColor:'#a78bfa15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Mañana',data:semData(cs.bySemana,'TM'),borderColor:'#E31E24',backgroundColor:'#E31E2415',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Tarde',data:semData(cs.bySemana,'TT'),borderColor:'#1A2B5E',backgroundColor:'#1A2B5E15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Noche',data:semData(cs.bySemana,'TN'),borderColor:'#64748b',backgroundColor:'#64748b15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
         {label:'Obj. FTW/EQP (200)',data:cSems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0},
-        {label:'Obj. APP (40)',data:cSems.map(function(){return 40;}),borderColor:'#f59e0b80',borderWidth:2,borderDash:[4,4],pointRadius:0,fill:false,tension:0}
+        {label:'Obj. APP (40)',data:cSems.map(function(){return 40;}),borderColor:'#64748b80',borderWidth:2,borderDash:[4,4],pointRadius:0,fill:false,tension:0}
       ]},
       options:JSON.parse(JSON.stringify(chartCfgLine.options))
     });
@@ -593,8 +593,8 @@ async function build(){
       type:'bar',
       data:{labels:['Mañana','Tarde','Noche'],datasets:[{
         data:[cAvgTM,cAvgTT,cAvgTN],
-        backgroundColor:['#FF6B0090','#3b82f690','#a78bfa90'],
-        borderColor:['#FF6B00','#3b82f6','#a78bfa'],
+        backgroundColor:['#E31E2490','#1A2B5E90','#64748b90'],
+        borderColor:['#E31E24','#1A2B5E','#64748b'],
         borderWidth:2,borderRadius:6
       }]},
       options:JSON.parse(JSON.stringify(chartCfgBar.options))
