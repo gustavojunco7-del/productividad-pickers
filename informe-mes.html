@@ -167,6 +167,12 @@ tr:hover td{background:var(--surface)}
   <div class="section-title">Pickers <span>· Productividad</span></div>
 
   <div class="kpi-row" id="pickKpis"></div>
+  <!-- Cards CIA pickers -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px" id="pickCiaKpis">
+    <div class="kpi" id="pickCiaFTW"><div class="kpi-lbl">FTW · Footwear</div><div class="kpi-val">—</div></div>
+    <div class="kpi" id="pickCiaAPP"><div class="kpi-lbl">APP · Apparel</div><div class="kpi-val">—</div></div>
+    <div class="kpi" id="pickCiaEQP"><div class="kpi-lbl">EQP · Equipment</div><div class="kpi-val">—</div></div>
+  </div>
 
   <div class="chart-card">
     <div class="chart-hdr">
@@ -359,6 +365,7 @@ function buildPickStats(db){
   var byTurno={TM:{items:0,n:0},TT:{items:0,n:0},TN:{items:0,n:0}};
   var bySemana={};
   var byHora={}; // {hora: {items,n}}
+  var pickByCIA={FTW:{items:0,n:0},APP:{items:0,n:0},EQP:{items:0,n:0}};
   var q1Items=0,q1n=0,q2Items=0,q2n=0; // quincenas
 
   days.forEach(function(dk){
@@ -377,11 +384,13 @@ function buildPickStats(db){
         bySemana[sem][sh].sum+=items;
         bySemana[sem][sh].n++;
         if(isQ2){q2Items+=items;q2n++;}else{q1Items+=items;q1n++;}
-        if(!allUsers[u.user])allUsers[u.user]={user:u.user,items:0,turnos:0,turnoItems:[],turnoAvg:{TM:[],TT:[],TN:[]},isEfectivo:!/^nikepick/i.test(u.user)};
+ 
+        if(u.cia&&u.cia!=='-'&&pickByCIA[u.cia])pickByCIA[u.cia].items+=items,pickByCIA[u.cia].n++;       if(!allUsers[u.user])allUsers[u.user]={user:u.user,items:0,turnos:0,turnoItems:[],turnoAvg:{TM:[],TT:[],TN:[]},cia:{FTW:0,APP:0,EQP:0},isEfectivo:!/^nikepick/i.test(u.user)};
         allUsers[u.user].items+=items;
         allUsers[u.user].turnos++;
         allUsers[u.user].turnoItems.push(items);
         allUsers[u.user].turnoAvg[sh].push(items);
+        if(u.cia&&u.cia!=='—'&&allUsers[u.user].cia[u.cia]!==undefined)allUsers[u.user].cia[u.cia]+=items;
         // Hora pico según turno
         var horaKey={TM:'06-14',TT:'14-22',TN:'22-06'}[sh];
         if(!byHora[horaKey])byHora[horaKey]={items:0,n:0};
@@ -409,7 +418,7 @@ function buildPickStats(db){
     allUsers[u].bestTurnoVal=bestVal>0?bestVal:0;
   });
 
-  return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,byHora,allUsers,
+  return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,byHora,byCIA:pickByCIA,allUsers,
     q1Avg:q1n?Math.round(q1Items/q1n):0,q2Avg:q2n?Math.round(q2Items/q2n):0};
 }
 
@@ -520,6 +529,27 @@ async function build(){
       mkKpi('Operarios al target',pctCumpl+'%',cumplieron+' de '+pickUsers.length+' llegan a 200',pctCumpl>=70?'green':'red')+
       mkKpi('Total líneas',ps.totalLineas.toLocaleString('es-AR'),'pickeadas en el mes','orange');
 
+
+    // Cards CIA pickers
+    var pickCiaTargets={FTW:200,APP:200,EQP:200};
+    var pickCiaNames={FTW:'FTW · Footwear',APP:'APP · Apparel',EQP:'EQP · Equipment'};
+    var pickCiaIds={FTW:'pickCiaFTW',APP:'pickCiaAPP',EQP:'pickCiaEQP'};
+    ['FTW','APP','EQP'].forEach(function(cia){
+      var d=(ps.byCIA&&ps.byCIA[cia])||{items:0,n:0};
+      var avg=d.n?Math.round(d.items/d.n):0;
+      var pct=Math.round(avg/pickCiaTargets[cia]*100);
+      var cls=pct>=100?'green':pct>=75?'':'red';
+      var pctColor=pct>=100?'var(--green)':pct>=75?'var(--yellow)':'var(--red-kpi)';
+      var el=document.getElementById(pickCiaIds[cia]);
+      if(el){
+        el.className='kpi '+cls;el.style.borderTopWidth='3px';
+        el.innerHTML='<div class="kpi-lbl">'+pickCiaNames[cia]+'</div>'+
+          '<div class="kpi-val">'+avg+' <span style="font-size:16px;font-weight:600">líneas/turno</span></div>'+
+          '<div style="display:flex;justify-content:space-between;margin-top:8px">'+
+          '<span class="kpi-sub">'+d.n+' registros</span>'+
+          '<span style="font-size:18px;font-weight:800;color:'+pctColor+'">'+pct+'%</span></div>';
+      }
+    });
     // Chart semanal pickers
     var sems=semLabels(ps.bySemana);
     new Chart(document.getElementById('chartPickSemanal'),{
