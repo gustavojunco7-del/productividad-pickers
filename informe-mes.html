@@ -114,8 +114,14 @@ tr:hover td{background:var(--surface)}
 .q-val{font-size:24px;font-weight:900;font-family:var(--mono);color:var(--navy)}
 
 @media print{
+  .no-print{display:none!important}
+  body{background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cover{border-radius:0;height:380px}
   .cover-img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{padding:0 24px 40px}
+  .section{padding:32px 0 0}
+  .chart-card,.tbl-card,.q-card,.kpi{break-inside:avoid}
+  .grid-2{break-inside:avoid}
 }
 </style>
 </head>
@@ -139,6 +145,9 @@ tr:hover td{background:var(--surface)}
       <div style="font-size:10px;color:rgba(255,255,255,0.6)">Operación Nike · PLEE</div>
     </div>
   </div>
+  <button onclick="window.print()" class="no-print" style="position:absolute;top:32px;left:40px;z-index:2;background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:10px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px">
+    ⬇ Descargar PDF
+  </button>
   <div class="cover-content">
     <div class="cover-eyebrow">Informe de Cierre de Mes · Confidencial</div>
     <h1 class="cover-title">Resumen<br><span id="coverMes">—</span></h1>
@@ -176,7 +185,7 @@ tr:hover td{background:var(--surface)}
     </div>
     <div class="tbl-card">
       <div class="tbl-hdr"><span>Ranking de operarios</span><span style="font-size:10px;color:var(--muted)">Top 10 por líneas totales</span></div>
-      <table><thead><tr><th>#</th><th>Operario</th><th>Prom/turno</th><th>vs Target</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Operario</th><th>Prom/turno</th><th>Mejor turno</th><th>vs Target</th></tr></thead>
       <tbody id="pickRanking"></tbody></table>
     </div>
   </div>
@@ -202,7 +211,7 @@ tr:hover td{background:var(--surface)}
   <!-- Consistencia -->
   <div class="tbl-card" style="margin-top:16px">
     <div class="tbl-hdr"><span>Consistencia por operario</span><span style="font-size:10px;color:var(--muted2)">Qué tan parejo rinde cada uno · mín. 3 turnos</span></div>
-    <table><thead><tr><th>Operario</th><th>Prom/turno</th><th>Desvío</th><th>Consistencia</th></tr></thead>
+    <table><thead><tr><th>Operario</th><th>Prom/turno</th><th>Mejor turno</th><th>Desvío</th><th>Consistencia</th></tr></thead>
     <tbody id="pickConsistencia"></tbody></table>
   </div>
 
@@ -368,10 +377,11 @@ function buildPickStats(db){
         bySemana[sem][sh].sum+=items;
         bySemana[sem][sh].n++;
         if(isQ2){q2Items+=items;q2n++;}else{q1Items+=items;q1n++;}
-        if(!allUsers[u.user])allUsers[u.user]={user:u.user,items:0,turnos:0,turnoItems:[],isEfectivo:!/^nikepick/i.test(u.user)};
+        if(!allUsers[u.user])allUsers[u.user]={user:u.user,items:0,turnos:0,turnoItems:[],turnoAvg:{TM:[],TT:[],TN:[]},isEfectivo:!/^nikepick/i.test(u.user)};
         allUsers[u.user].items+=items;
         allUsers[u.user].turnos++;
         allUsers[u.user].turnoItems.push(items);
+        allUsers[u.user].turnoAvg[sh].push(items);
         // Hora pico según turno
         var horaKey={TM:'06-14',TT:'14-22',TN:'22-06'}[sh];
         if(!byHora[horaKey])byHora[horaKey]={items:0,n:0};
@@ -389,6 +399,14 @@ function buildPickStats(db){
     allUsers[u].avg=Math.round(avg);
     allUsers[u].std=Math.round(Math.sqrt(variance));
     allUsers[u].consistency=avg>0?Math.max(0,Math.round((1-Math.sqrt(variance)/avg)*100)):0;
+    // Mejor y peor turno
+    var ta=allUsers[u].turnoAvg;
+    var turnoAvgs={TM:ta.TM.length?Math.round(ta.TM.reduce(function(s,v){return s+v;},0)/ta.TM.length):null,TT:ta.TT.length?Math.round(ta.TT.reduce(function(s,v){return s+v;},0)/ta.TT.length):null,TN:ta.TN.length?Math.round(ta.TN.reduce(function(s,v){return s+v;},0)/ta.TN.length):null};
+    var turnoLabels={TM:'Mañana',TT:'Tarde',TN:'Noche'};
+    var best=null,bestVal=-1;
+    Object.keys(turnoAvgs).forEach(function(t){if(turnoAvgs[t]!==null&&turnoAvgs[t]>bestVal){bestVal=turnoAvgs[t];best=t;}});
+    allUsers[u].bestTurno=best?turnoLabels[best]:'—';
+    allUsers[u].bestTurnoVal=bestVal>0?bestVal:0;
   });
 
   return{totalLineas,totalPickers:totalPickers.size,days:days.length,byTurno,bySemana,byHora,allUsers,
@@ -537,6 +555,7 @@ async function build(){
       return'<tr><td style="font-family:var(--mono);color:var(--muted)">'+(i+1)+'</td>'+
         '<td style="font-weight:600">'+u.user+badge+'</td>'+
         '<td style="font-family:var(--mono);font-size:12px;color:var(--muted2)">'+u.avg+' avg / '+u.turnos+' turnos</td>'+
+        '<td><span style="font-size:12px;font-weight:600;color:var(--navy)">'+u.bestTurno+'</span><span style="font-size:11px;color:var(--muted2);margin-left:4px">'+u.bestTurnoVal+' l</span></td>'+
         '<td><span class="pill '+pillCls+'">'+pct+'%</span></td></tr>';
     }).join('');
 
@@ -546,6 +565,7 @@ async function build(){
       var color=u.consistency>=80?'var(--green)':u.consistency>=60?'var(--yellow)':'var(--red)';
       return'<tr><td style="font-weight:600">'+u.user+'</td>'+
         '<td style="font-family:var(--mono)">'+u.avg+'</td>'+
+        '<td><span style="font-size:12px;font-weight:600;color:var(--navy)">'+u.bestTurno+'</span></td>'+
         '<td style="font-family:var(--mono);color:var(--muted2)">±'+u.std+'</td>'+
         '<td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+u.consistency+'%;background:'+color+'"></div></div>'+
         '<span class="bar-val" style="color:'+color+'">'+u.consistency+'%</span></div></td></tr>';
