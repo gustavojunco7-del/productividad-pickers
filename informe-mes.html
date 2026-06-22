@@ -661,6 +661,20 @@ async function build(){
       }
     });
 
+    // Chart semanal CTL
+    var cSems=semLabels(cs.bySemana);
+    new Chart(document.getElementById('chartCtlSemanal'),{
+      type:'line',
+      data:{labels:cSems,datasets:[
+        {label:'Mañana',data:semData(cs.bySemana,'TM'),borderColor:'#E31E24',backgroundColor:'#E31E2415',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Tarde',data:semData(cs.bySemana,'TT'),borderColor:'#1A2B5E',backgroundColor:'#1A2B5E15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Noche',data:semData(cs.bySemana,'TN'),borderColor:'#64748b',backgroundColor:'#64748b15',borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true},
+        {label:'Target FTW/EQP (200)',data:cSems.map(function(){return 200;}),borderColor:'#22c55e80',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0},
+        {label:'Target APP (40)',data:cSems.map(function(){return 40;}),borderColor:'#d9770680',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false,tension:0}
+      ]},
+      options:JSON.parse(JSON.stringify(chartCfgLine.options))
+    });
+
     new Chart(document.getElementById('chartCtlTurnos'),{
       type:'bar',
       data:{labels:['Mañana','Tarde','Noche'],datasets:[{
