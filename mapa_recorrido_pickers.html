@@ -59,7 +59,11 @@ select:focus{border-color:#4a6fa5}
 .reset-btn{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit}
 .canvas-wrap{flex:1;overflow:hidden;position:relative}
 canvas{display:block}
-.legend{position:absolute;bottom:12px;left:12px;background:rgba(26,29,39,.9);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:10px}
+.legend{position:absolute;top:10px;right:10px;background:rgba(26,29,39,.92);border:1px solid var(--border);border-radius:8px;font-size:10px;min-width:160px;z-index:10}
+.legend-header{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;user-select:none}
+.legend-header span{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.legend-toggle{color:var(--muted);font-size:12px;line-height:1}
+.legend-body{padding:4px 12px 10px;border-top:1px solid var(--border)}
 .legend-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--muted)}
 .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .tooltip{position:fixed;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;pointer-events:none;z-index:99;display:none;min-width:140px}
@@ -160,15 +164,21 @@ canvas{display:block}
       <canvas id="cv" style="display:none"></canvas>
     </div>
     <div class="legend" id="legend" style="display:none">
-      <div class="legend-row"><div class="legend-dot" style="background:#4ade80"></div>Inicio del turno</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#fbbf24"></div>Pick en progreso</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#E31E24"></div>Último pick</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#7b82a0;opacity:.5"></div>Heatmap base</div>
-      <div class="legend-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px"><span style="font-size:10px;color:var(--muted)">Forma = Nivel</span></div>
-      <div class="legend-row">● Círculo = N0 (piso)</div>
-      <div class="legend-row">■ Cuadrado = N10</div>
-      <div class="legend-row">◆ Diamante = N20</div>
-      <div class="legend-row" style="margin-top:4px;font-size:9px;color:rgba(255,200,50,.6)">— — Corredor entre racks</div>
+      <div class="legend-header" onclick="toggleLegend()">
+        <span>Referencias</span>
+        <span class="legend-toggle" id="legendToggle">▾</span>
+      </div>
+      <div class="legend-body" id="legendBody">
+        <div class="legend-row"><div class="legend-dot" style="background:#4ade80"></div>Inicio del turno</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#fbbf24"></div>Pick en progreso</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#E31E24"></div>Último pick</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#7b82a0;opacity:.5"></div>Heatmap base</div>
+        <div class="legend-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;color:#aaa">Forma = Nivel</div>
+        <div class="legend-row">● Círculo = N0 (piso)</div>
+        <div class="legend-row">■ Cuadrado = N10</div>
+        <div class="legend-row">◆ Diamante = N20</div>
+        <div class="legend-row" style="margin-top:4px;font-size:9px;color:rgba(255,200,50,.6)">— — Corredor entre racks</div>
+      </div>
     </div>
   </div>
 </div>
@@ -576,6 +586,14 @@ function setNiv(v, btn){
   document.querySelectorAll('#nivSeg button').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   if(currentPicker){ animStep=getFilteredRoute().length; draw(); }
+}
+
+function toggleLegend(){
+  const body = document.getElementById('legendBody');
+  const toggle = document.getElementById('legendToggle');
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  toggle.textContent = collapsed ? '▾' : '▸';
 }
 
 resize();
