@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Recorrido de Pickers — Nike PLEE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -13,6 +14,11 @@
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:13px;min-height:100vh}
 .top{background:var(--navy);padding:12px 24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2a3a6e}
+.drop-zone{border:2px dashed #3d5a9e;border-radius:8px;padding:8px 16px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,.6)}
+.drop-zone:hover,.drop-zone.drag{border-color:#fff;background:rgba(255,255,255,.06);color:#fff}
+.drop-zone input{display:none}
+.drop-zone svg{flex-shrink:0;opacity:.6}
+.file-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:2px 10px;font-size:10px;color:#4ade80;white-space:nowrap}
 .top h1{font-size:14px;font-weight:700;color:#fff}
 .top p{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em}
 .layout{display:grid;grid-template-columns:260px 1fr;height:calc(100vh - 52px)}
@@ -73,6 +79,14 @@ canvas{display:block}
     <h1>Mapa de Recorrido — Pickers</h1>
     <p>Nike PLEE · Módulos 700 y 800 · Seguimiento de ruta real</p>
   </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span id="dropLabel">Cargar export del BI (.xlsx)</span>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+    </div>
+    <div class="file-badge" id="fileBadge" style="display:none">✓ Datos cargados</div>
+  </div>
 </div>
 
 <div class="layout">
@@ -111,6 +125,20 @@ canvas{display:block}
           <button onclick="setNiv('10',this)">N10</button>
           <button onclick="setNiv('20',this)">N20</button>
         </div>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></div>
+      <div class="tb-group">
+        <span class="tb-label">Velocidad</span>
+        <input type="range" min="1" max="5" value="3" id="speedSlider" step="1"
+          oninput="setSpeed(+this.value)"
+          style="width:80px;accent-color:#E31E24;cursor:pointer">
+        <span id="speedLabel" style="font-size:10px;color:var(--muted);min-width:24px">x3</span>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></div>
+      <div class="tb-group" style="cursor:pointer" onclick="document.getElementById('fileInputTb').click()" title="Cargar export del BI (.xlsx)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7b82a0" stroke-width="2" style="flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span id="tbFileLabel" class="tb-label" style="cursor:pointer;color:#7b82a0">Cargar Excel del día</span>
+        <input type="file" id="fileInputTb" accept=".xlsx,.xls" style="display:none" onchange="handleFile(this.files[0])">
       </div>
       <div style="flex:1"></div>
       <button class="reset-btn" onclick="resetAnim()">↺ Reset</button>
@@ -385,6 +413,14 @@ function togglePlay(){
   isPlaying ? stopAnim() : startAnim();
 }
 
+let animSpeed = 3; // 1=lento, 5=rápido
+const SPEED_MS = {1:400, 2:200, 3:100, 4:40, 5:10};
+
+function setSpeed(v){
+  animSpeed = v;
+  document.getElementById('speedLabel').textContent = 'x'+v;
+}
+
 function startAnim(){
   isPlaying = true;
   document.getElementById('playBtn').textContent = '⏸ Pausar';
@@ -396,7 +432,7 @@ function startAnim(){
     draw();
     highlightItem(animStep-1);
     if(animStep < route.length){
-      animTimer = setTimeout(step, 120);
+      animTimer = setTimeout(step, SPEED_MS[animSpeed]||100);
     } else {
       stopAnim();
     }
@@ -431,6 +467,110 @@ function setNiv(v, btn){
 }
 
 resize();
+
+// ── FILE LOADING ──
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+}
+
+function handleFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:false});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {raw:false, defval:''});
+      processRows(rows, file.name);
+    } catch(err){
+      alert('Error leyendo el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+const BLACKLIST_USERS = ['lmministroni','lponce','cdacal','evtcbaez','juescalante','rchavez','acollado'];
+
+function parseLocStr(loc){
+  const s = String(loc||'').trim();
+  if(!/^\d{9}$/.test(s)) return null;
+  return [parseInt(s.slice(1,4)), parseInt(s.slice(4,7)), parseInt(s.slice(7,9))];
+}
+
+function parseTS(str){
+  const s = String(str||'').trim();
+  // ISO: 2026-06-29 07:33:25
+  let m = s.match(/^\d{4}-\d{2}-\d{2}[T ]?(\d{2}):(\d{2})/);
+  if(m) return m[1]+':'+m[2];
+  // WMS: 29/6/2026 07:33
+  m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if(m) return ('0'+m[4]).slice(-2)+':'+('0'+m[5]).slice(-2);
+  return '??:??';
+}
+
+function parseQty(str){
+  return parseFloat(String(str).replace(',','.')) || 0;
+}
+
+function processRows(rows, filename){
+  // Detect columns: BI has "Inicio", WMS has "Fecha"
+  const isBI = rows.length && rows[0].hasOwnProperty('Inicio');
+  const tsCol = isBI ? 'Inicio' : 'Fecha';
+  const fromCol = isBI ? 'Ubicación de origen' : 'fromloc';
+  const userCol = 'Usuario';
+  const qtyCol = 'Cantidad';
+
+  const newRoutes = {};
+  // Sort by timestamp first
+  const sorted = [...rows].sort((a,b) => String(a[tsCol]||'').localeCompare(String(b[tsCol]||'')));
+  
+  sorted.forEach(r => {
+    const user = String(r[userCol]||'').trim().toLowerCase();
+    if(!user || BLACKLIST_USERS.includes(user)) return;
+    const loc = parseLocStr(r[fromCol]);
+    if(!loc) return;
+    const t = parseTS(r[tsCol]);
+    const qty = parseQty(r[qtyCol]);
+    if(!newRoutes[user]) newRoutes[user] = [];
+    newRoutes[user].push([t, loc[0], loc[1], loc[2], qty]);
+  });
+
+  if(!Object.keys(newRoutes).length){
+    alert('No se encontraron picks válidos en el archivo.');
+    return;
+  }
+
+  // Update global routes
+  Object.assign(FULL_ROUTES, newRoutes);
+  
+  // Refresh picker selector
+  const s = document.getElementById('pickerSel');
+  // Add new pickers
+  Object.keys(newRoutes).sort().forEach(u => {
+    if(!s.querySelector(`option[value="${u}"]`)){
+      const opt = document.createElement('option');
+      opt.value = u;
+      opt.textContent = NAMES[u] ? `${u} — ${NAMES[u]}` : u;
+      s.appendChild(opt);
+    }
+  });
+
+  const shortName = filename.length>25 ? filename.slice(0,22)+'…' : filename;
+  if(document.getElementById('dropLabel')) document.getElementById('dropLabel').textContent = shortName;
+  if(document.getElementById('tbFileLabel')) document.getElementById('tbFileLabel').textContent = '✓ ' + shortName;
+  if(document.getElementById('fileBadge')){
+    document.getElementById('fileBadge').style.display = 'block';
+    document.getElementById('fileBadge').textContent = `✓ ${Object.keys(newRoutes).length} pickers · ${rows.length} picks`;
+  }
+
+  // If current picker was reloaded, refresh
+  if(currentPicker && newRoutes[currentPicker]){
+    loadPicker(currentPicker);
+  }
+}
 </script>
 </body>
 </html>
