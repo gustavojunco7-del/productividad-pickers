@@ -128,6 +128,13 @@ canvas{display:block}
       </div>
       <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></div>
       <div class="tb-group">
+        <span class="tb-label">Fecha</span>
+        <select id="fechaSel" onchange="setFecha(this.value)" style="font-size:11px;padding:4px 8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></div>
+      <div class="tb-group">
         <span class="tb-label">Velocidad</span>
         <input type="range" min="1" max="5" value="3" id="speedSlider" step="1"
           oninput="setSpeed(+this.value)"
@@ -156,7 +163,12 @@ canvas{display:block}
       <div class="legend-row"><div class="legend-dot" style="background:#4ade80"></div>Inicio del turno</div>
       <div class="legend-row"><div class="legend-dot" style="background:#fbbf24"></div>Pick en progreso</div>
       <div class="legend-row"><div class="legend-dot" style="background:#E31E24"></div>Último pick</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#7b82a0;opacity:.5"></div>Heatmap (todos los picks)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#7b82a0;opacity:.5"></div>Heatmap base</div>
+      <div class="legend-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px"><span style="font-size:10px;color:var(--muted)">Forma = Nivel</span></div>
+      <div class="legend-row">● Círculo = N0 (piso)</div>
+      <div class="legend-row">■ Cuadrado = N10</div>
+      <div class="legend-row">◆ Diamante = N20</div>
+      <div class="legend-row" style="margin-top:4px;font-size:9px;color:rgba(255,200,50,.6)">— — Corredor entre racks</div>
     </div>
   </div>
 </div>
@@ -218,12 +230,30 @@ function resize(){
 }
 window.addEventListener('resize', resize);
 
+// Pasillos frente-frente (tienen corredor de 4m entre ellos — se muestra como gap visual)
+const FRENTE_FRENTE = new Set([702,704,706,708,710,801,803,805,807,809,811]);
+// Gap visual extra entre pasillos frente-frente (en px, proporcional a cellH)
+const GAP_FF = 0.6; // extra fracciones de cellH
+
 function layout(){
-  marginL = 48; marginT = 24;
+  marginL = 52; marginT = 28;
   const pasillos = filteredPasillos();
   const cols = COL_MAX - COL_MIN + 1;
   cellW = Math.max(1.5, (W - marginL - 16) / cols);
-  cellH = Math.max(8, (H - marginT - 16) / pasillos.length);
+  // Calcular altura disponible repartida entre pasillos + gaps
+  const totalGaps = pasillos.filter(p => FRENTE_FRENTE.has(p)).length;
+  const totalRows = pasillos.length + totalGaps * GAP_FF;
+  cellH = Math.max(8, (H - marginT - 16) / totalRows);
+}
+
+function pasilloY(pasillos, idx){
+  // Y acumulado considerando gaps entre frente-frente
+  let y = marginT;
+  for(let i = 0; i < idx; i++){
+    y += cellH;
+    if(FRENTE_FRENTE.has(pasillos[i])) y += cellH * GAP_FF;
+  }
+  return y;
 }
 
 function filteredPasillos(){
@@ -237,7 +267,8 @@ function getFilteredRoute(){
     const inMod = filtMod === 'ambos' ? true :
                   filtMod === '700' ? pk[1] <= 799 : pk[1] >= 800;
     const inNiv = filtNiv === 'todos' ? true : pk[3] === parseInt(filtNiv);
-    return inMod && inNiv;
+    const inFecha = !currentFecha ? true : (pk[0]||'').startsWith(currentFecha);
+    return inMod && inNiv && inFecha;
   });
 }
 
@@ -246,7 +277,7 @@ function locToXY(p, c){
   const row = pasillos.indexOf(p);
   if(row < 0) return null;
   const x = marginL + (c - COL_MIN) * cellW + cellW/2;
-  const y = marginT + row * cellH + cellH/2;
+  const y = pasilloY(pasillos, row) + cellH/2;
   return {x, y};
 }
 
@@ -277,13 +308,31 @@ function draw(){
 
   // Pasillo labels + rows
   pasillos.forEach((p, row) => {
-    const y = marginT + row * cellH;
-    ctx.fillStyle = row%2===0 ? 'rgba(255,255,255,.02)' : 'transparent';
+    const y = pasilloY(pasillos, row);
+    // Rack background
+    ctx.fillStyle = row%2===0 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.01)';
     ctx.fillRect(marginL, y, W - marginL, cellH);
-    ctx.fillStyle = '#4a5070';
-    ctx.font = '9px monospace';
+    // Gap visual entre frente-frente (corredor de 4m)
+    if(FRENTE_FRENTE.has(p)){
+      ctx.fillStyle = 'rgba(255,200,50,.04)';
+      ctx.fillRect(marginL, y + cellH, W - marginL, cellH * GAP_FF);
+      // Línea punteada indicando corredor
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,200,50,.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,6]);
+      ctx.beginPath();
+      ctx.moveTo(marginL, y + cellH + cellH*GAP_FF/2);
+      ctx.lineTo(W, y + cellH + cellH*GAP_FF/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    // Pasillo label
+    ctx.fillStyle = '#c8cfe8';
+    ctx.font = `${Math.max(9, Math.min(11, cellH*0.7))}px monospace`;
     ctx.textAlign = 'right';
-    ctx.fillText(p, marginL - 4, y + cellH/2 + 3);
+    ctx.fillText(p, marginL - 5, y + cellH/2 + 3);
   });
 
   // Heatmap background (all picks of this picker)
@@ -331,17 +380,32 @@ function draw(){
     ctx.globalAlpha = 1;
   }
 
-  // ── DOTS ──
+  // ── DOTS (forma por nivel: N0=círculo, N10=cuadrado, N20=diamante) ──
   if(visible.length > 0){
     visible.forEach((pk, i) => {
       const pos = locToXY(pk[1], pk[2]);
       if(!pos) return;
       const isLast = i === visible.length-1;
       const isFirst = i === 0;
-      const r = isFirst||isLast ? Math.max(4, cellH*0.35) : Math.max(2.5, cellH*0.2);
+      const r = isFirst||isLast ? Math.max(4, cellH*0.38) : Math.max(2, cellH*0.22);
+      const col = isFirst ? '#4ade80' : isLast ? '#E31E24' : colorForStep(i, visible.length);
+      const nivel = pk[3]; // 0, 10, 20
+      ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
-      ctx.fillStyle = isFirst ? '#4ade80' : isLast ? '#E31E24' : colorForStep(i, visible.length);
+      if(nivel === 0){
+        // Círculo — nivel piso
+        ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
+      } else if(nivel === 10){
+        // Cuadrado — nivel medio
+        ctx.rect(pos.x - r, pos.y - r, r*2, r*2);
+      } else {
+        // Diamante — nivel alto
+        ctx.moveTo(pos.x, pos.y - r*1.2);
+        ctx.lineTo(pos.x + r*1.2, pos.y);
+        ctx.lineTo(pos.x, pos.y + r*1.2);
+        ctx.lineTo(pos.x - r*1.2, pos.y);
+        ctx.closePath();
+      }
       ctx.fill();
       if(isFirst||isLast){
         ctx.strokeStyle = '#fff';
@@ -451,6 +515,14 @@ function highlightItem(idx){
 
 function togglePlay(){
   isPlaying ? stopAnim() : startAnim();
+}
+
+let currentFecha = ''; // filtro de fecha activo
+let allDates = []; // fechas disponibles en el archivo cargado
+
+function setFecha(v){
+  currentFecha = v;
+  if(currentPicker) { animStep = getFilteredRoute().length; draw(); }
 }
 
 let animSpeed = 3; // 1=lento, 5=rápido
@@ -581,7 +653,9 @@ function processRows(rows, filename){
     const t = parseTS(r[tsCol]);
     const qty = parseQty(r[qtyCol]);
     if(!newRoutes[user]) newRoutes[user] = [];
-    newRoutes[user].push([t, loc[0], loc[1], loc[2], qty]);
+    // Guardar fecha completa para filtro (YYYY-MM-DD HH:MM)
+    const fullDate = String(r[tsCol]||'').trim().slice(0,10);
+    newRoutes[user].push([fullDate+'|'+t, loc[0], loc[1], loc[2], qty]);
   });
 
   if(!Object.keys(newRoutes).length){
@@ -613,6 +687,28 @@ function processRows(rows, filename){
   }
 
   // If current picker was reloaded, refresh
+  // Extraer fechas únicas del archivo y poblar selector
+  const fechas = new Set();
+  sorted.forEach(r => {
+    const s = String(r[tsCol]||'').trim();
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if(m) fechas.add(m[1]);
+  });
+  if(fechas.size > 1){
+    const fSel = document.getElementById('fechaSel');
+    fSel.innerHTML = '<option value="">Todas las fechas</option>';
+    [...fechas].sort().forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f+'T'; // prefix para match con HH:MM format
+      const parts = f.split('-');
+      opt.textContent = parts[2]+'/'+parts[1]+'/'+parts[0];
+      // Store raw date for filtering
+      opt.value = f;
+      fSel.appendChild(opt);
+    });
+    fSel.style.display = '';
+  }
+
   if(currentPicker && newRoutes[currentPicker]){
     loadPicker(currentPicker);
   }
