@@ -99,7 +99,7 @@ canvas{display:block}
     </div>
     <div class="stats" id="stats" style="display:none">
       <div class="stat"><div class="stat-lbl">Picks</div><div class="stat-val" id="s-picks">—</div></div>
-      <div class="stat"><div class="stat-lbl">Distancia</div><div class="stat-val yellow" id="s-dist">—</div></div>
+      <div class="stat"><div class="stat-lbl">Distancia (m)</div><div class="stat-val yellow" id="s-dist">—</div></div>
       <div class="stat"><div class="stat-lbl">Módulo 700</div><div class="stat-val" id="s-m700">—</div></div>
       <div class="stat"><div class="stat-lbl">Módulo 800</div><div class="stat-val" id="s-m800">—</div></div>
     </div>
@@ -365,14 +365,15 @@ function loadPicker(u){
 
   // Stats
   const route = getFilteredRoute();
+  // Distancia en metros: 1 columna ≈ 0.73m · 1 cambio de pasillo ≈ 2m
   const dist = route.slice(1).reduce((s,pk,i)=>{
-    return s + Math.abs(pk[2]-route[i][2]) + Math.abs(pk[1]-route[i][1])*10;
+    return s + Math.abs(pk[2]-route[i][2])*0.73 + Math.abs(pk[1]-route[i][1])*2;
   },0);
   const m700 = currentRoute.filter(p=>p[1]<=799).length;
   const m800 = currentRoute.filter(p=>p[1]>=800).length;
 
   document.getElementById('s-picks').textContent = currentRoute.length;
-  document.getElementById('s-dist').textContent = dist.toLocaleString('es-AR');
+  document.getElementById('s-dist').textContent = Math.round(dist) + ' m';
   document.getElementById('s-m700').textContent = m700;
   document.getElementById('s-m800').textContent = m800;
   document.getElementById('stats').style.display = 'grid';
