@@ -365,9 +365,48 @@ function loadPicker(u){
 
   // Stats
   const route = getFilteredRoute();
-  // Distancia en metros: 1 columna ≈ 0.73m · 1 cambio de pasillo ≈ 2m
+  // Distancia en metros: 1 columna = 0.73m
+  // Pasillos espalda-espalda = 0m (701-702, 703-704, 705-706, 707-708, 709-710, 711-712, 712-801, 803-804, 805-806, 807-808, 809-810, 811-812)
+  // Pasillos frente-frente = 4m (702-703, 704-705, 706-707, 708-709, 710-711, 801-802, 802-803, 804-805, 806-807, 808-809, 810-811)
+  const PASILLO_DIST = {
+    '701_702':0,'702_701':0,
+    '702_703':4,'703_702':4,
+    '703_704':0,'704_703':0,
+    '704_705':4,'705_704':4,
+    '705_706':0,'706_705':0,
+    '706_707':4,'707_706':4,
+    '707_708':0,'708_707':0,
+    '708_709':4,'709_708':4,
+    '709_710':0,'710_709':0,
+    '710_711':4,'711_710':4,
+    '711_712':0,'712_711':0,
+    '712_801':0,'801_712':0,
+    '801_802':4,'802_801':4,
+    '802_803':0,'803_802':0,
+    '803_804':4,'804_803':4,
+    '804_805':0,'805_804':0,
+    '805_806':4,'806_805':4,
+    '806_807':0,'807_806':0,
+    '807_808':4,'808_807':4,
+    '808_809':0,'809_808':0,
+    '809_810':4,'810_809':4,
+    '810_811':0,'811_810':0,
+    '811_812':4,'812_811':4,
+  };
+  function pasilloMetros(p1, p2){
+    if(p1 === p2) return 0;
+    // Para saltos de más de 1 pasillo, sumar tramos individuales
+    const sorted = p1 < p2 ? [p1,p2] : [p2,p1];
+    let total = 0;
+    for(let p = sorted[0]; p < sorted[1]; p++){
+      // Mapear 712→801 como consecutivos
+      const next = (p === 712) ? 801 : p+1;
+      total += PASILLO_DIST[p+'_'+next] || 0;
+    }
+    return total;
+  }
   const dist = route.slice(1).reduce((s,pk,i)=>{
-    return s + Math.abs(pk[2]-route[i][2])*0.73 + Math.abs(pk[1]-route[i][1])*2;
+    return s + Math.abs(pk[2]-route[i][2])*0.73 + pasilloMetros(pk[1], route[i][1]);
   },0);
   const m700 = currentRoute.filter(p=>p[1]<=799).length;
   const m800 = currentRoute.filter(p=>p[1]>=800).length;
