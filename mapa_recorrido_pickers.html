@@ -277,7 +277,8 @@ function getFilteredRoute(){
     const inMod = filtMod === 'ambos' ? true :
                   filtMod === '700' ? pk[1] <= 799 : pk[1] >= 800;
     const inNiv = filtNiv === 'todos' ? true : pk[3] === parseInt(filtNiv);
-    const inFecha = !currentFecha ? true : (pk[0]||'').startsWith(currentFecha);
+    const pkDate = (pk[0]||'').includes('|') ? pk[0].split('|')[0] : '';
+    const inFecha = !currentFecha ? true : pkDate === currentFecha;
     return inMod && inNiv && inFecha;
   });
 }
@@ -504,7 +505,7 @@ function loadPicker(u){
       <div class="pick-num" style="background:${col}22;color:${col}">${i+1}</div>
       <div class="pick-info">
         <div class="pick-loc">P${pk[1]} · C${String(pk[2]).padStart(3,'0')} · ${niv}</div>
-        <div class="pick-time">${pk[0]}</div>
+        <div class="pick-time">${(pk[0]||'').includes('|') ? pk[0].split('|')[1] : pk[0]}</div>
       </div>
       <div class="pick-qty">${pk[4]} u</div>`;
     div.addEventListener('click', ()=>{ animStep=i+1; draw(); highlightItem(i); });
@@ -712,20 +713,17 @@ function processRows(rows, filename){
     const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
     if(m) fechas.add(m[1]);
   });
-  if(fechas.size > 1){
-    const fSel = document.getElementById('fechaSel');
-    fSel.innerHTML = '<option value="">Todas las fechas</option>';
-    [...fechas].sort().forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f+'T'; // prefix para match con HH:MM format
-      const parts = f.split('-');
-      opt.textContent = parts[2]+'/'+parts[1]+'/'+parts[0];
-      // Store raw date for filtering
-      opt.value = f;
-      fSel.appendChild(opt);
-    });
-    fSel.style.display = '';
-  }
+  const fSel = document.getElementById('fechaSel');
+  fSel.innerHTML = '<option value="">Todas las fechas</option>';
+  [...fechas].sort().forEach(f => {
+    const opt = document.createElement('option');
+    const parts = f.split('-');
+    opt.textContent = parts[2]+'/'+parts[1]+'/'+parts[0];
+    opt.value = f;
+    fSel.appendChild(opt);
+  });
+  fSel.style.display = fechas.size > 1 ? '' : 'none';
+  currentFecha = '';
 
   if(currentPicker && newRoutes[currentPicker]){
     loadPicker(currentPicker);
