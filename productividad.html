@@ -121,7 +121,7 @@ tr:hover td{background:#ffffff05}
 <div class="drop-wrap" id="dropWrap">
   <div class="drop-zone" id="dropZone">
     <div class="drop-icon">📊</div>
-    <div class="drop-title">Subir export del WMS</div>
+    <div class="drop-title">Subir export del WMS o BI</div>
     <div class="drop-sub">Arrastrá el archivo Excel acá o hacé click para buscarlo.<br/>El reporte se procesa en el momento — nada se sube a ningún servidor.</div>
     <button class="drop-btn" onclick="document.getElementById('fileInput').click()">Seleccionar archivo</button>
     <input type="file" id="fileInput" accept=".xlsx,.xls"/>
@@ -254,12 +254,29 @@ function cambiarFiltro(val){
 
 // ── PARSE ──
 function parseFecha(str){
-  // Formato: "9/06/26 19:04" -> Date
+  // WMS: "9/06/26 19:04"  |  BI: "2026-06-29 07:33:25" o "2026-06-29T07:33:25"
   if(!str) return null;
-  var m = String(str).match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
-  if(!m) return null;
-  var day=+m[1], mon=+m[2]-1, yr=2000+(+m[3]);
-  return new Date(yr, mon, day, +m[4], +m[5]);
+  var s = String(str).trim();
+  // BI ISO: YYYY-MM-DD HH:MM:SS
+  var mISO = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+  if(mISO) return new Date(+mISO[1], +mISO[2]-1, +mISO[3], +mISO[4], +mISO[5]);
+  // WMS: D/MM/YY HH:MM
+  var mWMS = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if(mWMS) return new Date(2000+(+mWMS[3]), +mWMS[2]-1, +mWMS[1], +mWMS[4], +mWMS[5]);
+  return null;
+}
+
+function detectBI(rows){
+  // Si existe columna "Inicio" con timestamps ISO => es export BI
+  if(!rows || !rows.length) return false;
+  var r = rows[0];
+  return r.hasOwnProperty('Inicio') && String(r['Inicio']||'').match(/^\d{4}-\d{2}-\d{2}/);
+}
+
+function getFecha(r, isBI){
+  // BI: usar columna Inicio (timestamp exacto del pick)
+  // WMS: usar columna Fecha
+  return isBI ? parseFecha(r['Inicio']) : parseFecha(r['Fecha']);
 }
 
 function parseCant(str){
@@ -280,13 +297,18 @@ function fmtMin(mins){
 }
 
 // ── RENDER ──
+// Blacklist usuarios excluidos
+var BLACKLIST = ['cdacal','evtcbaez','juescalante','lmministroni','lponce','ministroni leonardo marcelo','rchavez','acollado'];
+
 function render(rows, filename){
+  var isBI = detectBI(rows);
   // Agrupar por usuario
   var usuarios = {};
   rows.forEach(function(r){
-    var user = (r['Usuario']||'').trim();
+    var user = (r['Usuario']||'').trim().toLowerCase();
     if(!user) return;
-    var fecha = parseFecha(r['Fecha']);
+    if(BLACKLIST.indexOf(user) >= 0) return;
+    var fecha = getFecha(r, isBI);
     var cant = parseCant(r['Cantidad']);
     if(!fecha) return;
     if(!usuarios[user]){
@@ -306,9 +328,10 @@ function render(rows, filename){
     // Filtrar registros: recalcular con solo los del período
     var usuariosFiltrados = {};
     rows.forEach(function(r){
-      var user = (r['Usuario']||'').trim();
+      var user = (r['Usuario']||'').trim().toLowerCase();
       if(!user) return;
-      var fecha = parseFecha(r['Fecha']);
+      if(BLACKLIST.indexOf(user) >= 0) return;
+      var fecha = getFecha(r, isBI);
       var cant = parseCant(r['Cantidad']);
       if(!fecha || fecha < corte) return;
       if(!usuariosFiltrados[user]) usuariosFiltrados[user] = {items:0, lineas:0, first:fecha, last:fecha};
