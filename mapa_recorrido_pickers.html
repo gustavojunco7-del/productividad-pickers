@@ -516,12 +516,18 @@ function parseQty(str){
 }
 
 function processRows(rows, filename){
-  // Detect columns: BI has "Inicio", WMS has "Fecha"
-  const isBI = rows.length && rows[0].hasOwnProperty('Inicio');
+  // Detect columns: check what's actually present
+  const firstRow = rows[0] || {};
+  const isBI = firstRow.hasOwnProperty('Inicio');
   const tsCol = isBI ? 'Inicio' : 'Fecha';
-  const fromCol = isBI ? 'Ubicación de origen' : 'fromloc';
-  const userCol = 'Usuario';
-  const qtyCol = 'Cantidad';
+  // fromloc puede llamarse "fromloc" o "Ubicación de origen" dependiendo del export
+  const fromCol = firstRow.hasOwnProperty('fromloc') ? 'fromloc'
+                : firstRow.hasOwnProperty('Ubicación de origen') ? 'Ubicación de origen'
+                : firstRow.hasOwnProperty('Ubicacion de origen') ? 'Ubicacion de origen'
+                : 'fromloc';
+  const userCol = firstRow.hasOwnProperty('Usuario') ? 'Usuario' : 'usuario';
+  const qtyCol = firstRow.hasOwnProperty('Cantidad') ? 'Cantidad' : 'cantidad';
+  console.log('Detected: tsCol='+tsCol+' fromCol='+fromCol+' isBI='+isBI);
 
   const newRoutes = {};
   // Sort by timestamp first
