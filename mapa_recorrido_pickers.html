@@ -178,6 +178,8 @@ canvas{display:block}
         <div class="legend-row">■ Cuadrado = N10</div>
         <div class="legend-row">◆ Diamante = N20</div>
         <div class="legend-row" style="margin-top:4px;font-size:9px;color:rgba(255,200,50,.6)">— — Corredor entre racks</div>
+        <div class="legend-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;font-size:9px;color:rgba(255,165,0,.8)">── Mezzanina (naranja)</div>
+        <div class="legend-row" style="font-size:9px;color:var(--muted)">N3=PB · N2=1°P · N1=2°P</div>
       </div>
     </div>
   </div>
@@ -234,8 +236,11 @@ let W, H, cellW, cellH, marginL, marginT;
 
 function resize(){
   W = wrap.clientWidth;
-  H = wrap.clientHeight;
+  // Extra height for mezzanina (3 niveles x 17 pasillos x ~14px + margins)
+  const mezzExtra = 3*(17*14+8+6) + 40;
+  H = wrap.clientHeight + mezzExtra;
   cv.width = W; cv.height = H;
+  cv.style.height = H+'px';
   if(currentPicker) draw();
 }
 window.addEventListener('resize', resize);
@@ -429,176 +434,210 @@ function draw(){
   // Progress bar
   const pct = visible.length / Math.max(route.length, 1) * 100;
   document.getElementById('progBar').style.width = pct + '%';
+
+  // ── DRAW MEZZANINA ──
+  if(currentPicker) drawMezz(visible);
 }
 
-function loadPicker(u){
-  if(!u){ currentPicker=null; currentRoute=[]; return; }
-  stopAnim();
-  currentPicker = u;
-  currentRoute = FULL_ROUTES[u] || [];
-  animStep = currentRoute.length; // show full route by default
+function drawMezz(visibleRack) {
+  if(!currentPicker) return;
+  const mezzRoute = MEZZ_ROUTES[currentPicker] || [];
 
-  // Stats
-  const route = getFilteredRoute();
-  // Distancia en metros: 1 columna = 0.73m
-  // Pasillos espalda-espalda = 0m (701-702, 703-704, 705-706, 707-708, 709-710, 711-712, 712-801, 803-804, 805-806, 807-808, 809-810, 811-812)
-  // Pasillos frente-frente = 4m (702-703, 704-705, 706-707, 708-709, 710-711, 801-802, 802-803, 804-805, 806-807, 808-809, 810-811)
-  const PASILLO_DIST = {
-    '701_702':0,'702_701':0,
-    '702_703':4,'703_702':4,
-    '703_704':0,'704_703':0,
-    '704_705':4,'705_704':4,
-    '705_706':0,'706_705':0,
-    '706_707':4,'707_706':4,
-    '707_708':0,'708_707':0,
-    '708_709':4,'709_708':4,
-    '709_710':0,'710_709':0,
-    '710_711':4,'711_710':4,
-    '711_712':0,'712_711':0,
-    '712_801':0,'801_712':0,
-    '801_802':4,'802_801':4,
-    '802_803':0,'803_802':0,
-    '803_804':4,'804_803':4,
-    '804_805':0,'805_804':0,
-    '805_806':4,'806_805':4,
-    '806_807':0,'807_806':0,
-    '807_808':4,'808_807':4,
-    '808_809':0,'809_808':0,
-    '809_810':4,'810_809':4,
-    '810_811':0,'811_810':0,
-    '811_812':4,'812_811':4,
-  };
-  function pasilloMetros(p1, p2){
-    if(p1 === p2) return 0;
-    // Para saltos de más de 1 pasillo, sumar tramos individuales
-    const sorted = p1 < p2 ? [p1,p2] : [p2,p1];
-    let total = 0;
-    for(let p = sorted[0]; p < sorted[1]; p++){
-      // Mapear 712→801 como consecutivos
-      const next = (p === 712) ? 801 : p+1;
-      total += PASILLO_DIST[p+'_'+next] || 0;
-    }
-    return total;
+  // ── MEZZANINA GEOMETRY ──
+  // Bay gaps (pasillo central): bay 014 y bay 030 no existen físicamente
+  // Tramo 1: bays 001-013 (cols 1-65:  13 bays × 5 pos)
+  // Gap 1: bay 014 = pasillo central 1 (3m)
+  // Tramo 2: bays 015-029 (cols 66-140: 15 bays × 5 pos)
+  // Gap 2: bay 030 = pasillo central 2 (3m)
+  // Tramo 3: bays 031-044 (cols 141-210: 14 bays × 5 pos)
+  // Cada posición = 0.60m
+
+  const GAP_BAYS = [14, 30]; // bays que son pasillos centrales
+  const GAP_PX_FACTOR = 4;   // gap visual en celdas
+
+  const MEZZ_NIVELES = [3,2,1];
+  const MEZZ_PASILLOS = 17;
+  const MAX_BAY = 44;
+  const MAX_COL = MAX_BAY * 5; // 220
+
+  const allPasillos = filteredPasillos();
+  const lastPasilloY = pasilloY(allPasillos, allPasillos.length-1) + cellH;
+  const mezzTop = lastPasilloY + 28;
+
+  // Calculate mezzanina cell width accounting for 2 gap bays
+  // Total visual cols = 220 + 2 gaps × GAP_PX_FACTOR
+  const totalVisualCols = MAX_COL + GAP_BAYS.length * GAP_PX_FACTOR;
+  const mCellW = Math.max(1, (W - marginL - 16) / totalVisualCols);
+  const mCellH = 13;
+  const mNivH = MEZZ_PASILLOS * mCellH + 10;
+
+  // Convert bay+pos to visual X offset (accounting for gaps)
+  function bayToVisualCol(bay, pos) {
+    let col = (bay-1)*5 + pos; // linear 1-220
+    let offset = 0;
+    GAP_BAYS.forEach(gb => {
+      if(bay > gb) offset += GAP_PX_FACTOR;
+    });
+    return col + offset;
   }
-  const dist = route.slice(1).reduce((s,pk,i)=>{
-    return s + Math.abs(pk[2]-route[i][2])*0.73 + pasilloMetros(pk[1], route[i][1]);
-  },0);
-  const m700 = currentRoute.filter(p=>p[1]<=799).length;
-  const m800 = currentRoute.filter(p=>p[1]>=800).length;
 
-  document.getElementById('s-picks').textContent = currentRoute.length;
-  document.getElementById('s-dist').textContent = Math.round(dist) + ' m';
-  document.getElementById('s-m700').textContent = m700;
-  document.getElementById('s-m800').textContent = m800;
-  document.getElementById('stats').style.display = 'grid';
+  function mezzXY(niv, pasillo, bay, pos) {
+    const ni = MEZZ_NIVELES.indexOf(niv);
+    if(ni < 0 || pasillo < 1 || pasillo > MEZZ_PASILLOS) return null;
+    const nivTop = mezzTop + ni*(mNivH+6);
+    const vcol = bayToVisualCol(bay, pos);
+    const x = marginL + (vcol-1)*mCellW + mCellW/2;
+    const y = nivTop + (pasillo-1)*mCellH + mCellH/2;
+    return {x, y};
+  }
 
-  // Route list
-  const list = document.getElementById('routeList');
-  list.innerHTML = '';
-  currentRoute.forEach((pk,i) => {
-    const div = document.createElement('div');
-    div.className = 'pick-item';
-    div.id = `ri-${i}`;
-    const niv = pk[3]===0?'N0':pk[3]===10?'N10':'N20';
-    const col = colorForStep(i, currentRoute.length);
-    div.innerHTML = `
-      <div class="pick-num" style="background:${col}22;color:${col}">${i+1}</div>
-      <div class="pick-info">
-        <div class="pick-loc">P${pk[1]} · C${String(pk[2]).padStart(3,'0')} · ${niv}</div>
-        <div class="pick-time">${(pk[0]||'').includes('|') ? pk[0].split('|')[1] : pk[0]}</div>
-      </div>
-      <div class="pick-qty">${pk[4]} u</div>`;
-    div.addEventListener('click', ()=>{ animStep=i+1; draw(); highlightItem(i); });
-    list.appendChild(div);
+  // Total height
+  const totalMezzH = MEZZ_NIVELES.length * mNivH + (MEZZ_NIVELES.length-1)*6;
+
+  // ── BORDER ──
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,165,0,.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5,4]);
+  ctx.strokeRect(marginL-2, mezzTop-6, W-marginL+2, totalMezzH+12);
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Label
+  ctx.fillStyle = 'rgba(255,165,0,.85)';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('MEZZANINA  ·  3 niveles  ·  17 pasillos  ·  2 corredores centrales', marginL+4, mezzTop-10);
+
+  // Build heatmap lookup
+  const mHeat = {};
+  MEZZ_HEAT.forEach(r => {
+    // r = [nivel, pasillo, col_lineal, count]
+    // Convert col_lineal back to bay+pos
+    const linCol = r[2];
+    const bay = Math.ceil(linCol/5);
+    const pos = linCol - (bay-1)*5;
+    const key = r[0]+'_'+r[1]+'_'+bay+'_'+pos;
+    mHeat[key] = (mHeat[key]||0) + r[3];
+  });
+  const maxHeat = Math.max(...Object.values(mHeat), 1);
+
+  // ── DRAW EACH NIVEL ──
+  MEZZ_NIVELES.forEach((niv, ni) => {
+    const nivTop = mezzTop + ni*(mNivH+6);
+    const nivLabels = {1:'N1 · 2° Piso',2:'N2 · 1° Piso',3:'N3 · Planta Baja'};
+
+    // Nivel background
+    ctx.fillStyle = 'rgba(255,140,0,.03)';
+    ctx.fillRect(marginL, nivTop, W-marginL, MEZZ_PASILLOS*mCellH);
+
+    // Nivel label (right side)
+    ctx.fillStyle = 'rgba(255,165,0,.7)';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(nivLabels[niv]||'N'+niv, marginL+4, nivTop+9);
+
+    // Gap visual lines (pasillos centrales)
+    GAP_BAYS.forEach(gb => {
+      const gapStartCol = gb*5 + (GAP_BAYS.indexOf(gb)*GAP_PX_FACTOR);
+      const gx = marginL + gapStartCol*mCellW;
+      const gw = GAP_PX_FACTOR*mCellW;
+      ctx.fillStyle = 'rgba(255,200,50,.07)';
+      ctx.fillRect(gx, nivTop, gw, MEZZ_PASILLOS*mCellH);
+      // Dashed center line
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,200,50,.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3,5]);
+      ctx.beginPath();
+      ctx.moveTo(gx+gw/2, nivTop);
+      ctx.lineTo(gx+gw/2, nivTop+MEZZ_PASILLOS*mCellH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      // Label
+      ctx.fillStyle = 'rgba(255,200,50,.5)';
+      ctx.font = '7px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('CORREDOR', gx+gw/2, nivTop+MEZZ_PASILLOS*mCellH/2-4);
+      ctx.fillText('3m', gx+gw/2, nivTop+MEZZ_PASILLOS*mCellH/2+6);
+    });
+
+    // Pasillos
+    for(let p=1; p<=MEZZ_PASILLOS; p++){
+      const py = nivTop + (p-1)*mCellH;
+      // Row bg
+      ctx.fillStyle = p%2===0?'rgba(255,165,0,.03)':'transparent';
+      ctx.fillRect(marginL, py, W-marginL, mCellH);
+      // Label
+      ctx.fillStyle = '#b0b8d0';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('P'+p, marginL-4, py+mCellH*0.7);
+
+      // Heatmap cells
+      for(let bay=1; bay<=MAX_BAY; bay++){
+        if(GAP_BAYS.includes(bay)) continue; // skip gap bays
+        for(let pos=1; pos<=5; pos++){
+          const key = niv+'_'+p+'_'+bay+'_'+pos;
+          const cnt = mHeat[key]||0;
+          if(!cnt) continue;
+          const alpha = 0.1 + (cnt/maxHeat)*0.6;
+          ctx.fillStyle = `rgba(255,140,0,${alpha})`;
+          const vcol = bayToVisualCol(bay,pos);
+          const cx = marginL + (vcol-1)*mCellW;
+          ctx.fillRect(cx, py+1, Math.max(mCellW*0.9,1), mCellH-2);
+        }
+      }
+    }
   });
 
-  document.getElementById('noSel').style.display='none';
-  cv.style.display='block';
-  document.getElementById('legend').style.display='block';
-  resize();
-}
-
-function highlightItem(idx){
-  document.querySelectorAll('.pick-item').forEach(el=>el.classList.remove('active'));
-  const el = document.getElementById(`ri-${idx}`);
-  if(el){ el.classList.add('active'); el.scrollIntoView({block:'nearest',behavior:'smooth'}); }
-}
-
-function togglePlay(){
-  isPlaying ? stopAnim() : startAnim();
-}
-
-let currentFecha = ''; // filtro de fecha activo
-let allDates = []; // fechas disponibles en el archivo cargado
-
-function setFecha(v){
-  currentFecha = v;
-  if(currentPicker) { animStep = getFilteredRoute().length; draw(); }
-}
-
-let animSpeed = 3; // 1=lento, 5=rápido
-const SPEED_MS = {1:400, 2:200, 3:100, 4:40, 5:10};
-
-function setSpeed(v){
-  animSpeed = v;
-  document.getElementById('speedLabel').textContent = 'x'+v;
-}
-
-function startAnim(){
-  isPlaying = true;
-  document.getElementById('playBtn').textContent = '⏸ Pausar';
-  const route = getFilteredRoute();
-  if(animStep >= route.length) animStep = 0;
-  function step(){
-    if(!isPlaying) return;
-    animStep++;
-    draw();
-    highlightItem(animStep-1);
-    if(animStep < route.length){
-      animTimer = setTimeout(step, SPEED_MS[animSpeed]||100);
-    } else {
-      stopAnim();
+  // ── WORM TRAIL ──
+  if(mezzRoute.length < 2) {
+    // Single dot
+    if(mezzRoute.length===1){
+      const pk = mezzRoute[0];
+      const bay = Math.ceil(pk[2]/5)||1;
+      const pos = pk[2]-(bay-1)*5||1;
+      const p = mezzXY(pk[0],pk[1],bay,pos);
+      if(p){ ctx.fillStyle='#4ade80'; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
     }
+    return;
   }
-  step();
+
+  for(let i=1; i<mezzRoute.length; i++){
+    const prev = mezzRoute[i-1], curr = mezzRoute[i];
+    const pBay = Math.ceil(prev[2]/5)||1, pPos = prev[2]-(pBay-1)*5||1;
+    const cBay = Math.ceil(curr[2]/5)||1, cPos = curr[2]-(cBay-1)*5||1;
+    const a = mezzXY(prev[0],prev[1],pBay,pPos);
+    const b = mezzXY(curr[0],curr[1],cBay,cPos);
+    if(!a||!b) continue;
+    const col = colorForStep(i, mezzRoute.length);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(1, mCellH*0.18);
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.65;
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    if(prev[0]!==curr[0]||prev[1]!==curr[1]){
+      ctx.bezierCurveTo(a.x,b.y,b.x,a.y,b.x,b.y);
+    } else { ctx.lineTo(b.x,b.y); }
+    ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+
+  // Dots
+  mezzRoute.forEach((pk,i)=>{
+    const bay = Math.ceil(pk[2]/5)||1, pos = pk[2]-(bay-1)*5||1;
+    const p = mezzXY(pk[0],pk[1],bay,pos);
+    if(!p) return;
+    const isFirst=i===0, isLast=i===mezzRoute.length-1;
+    const r = isFirst||isLast ? Math.max(3,mCellH*0.33) : Math.max(1.5,mCellH*0.18);
+    ctx.fillStyle = isFirst?'#4ade80':isLast?'#E31E24':colorForStep(i,mezzRoute.length);
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
+    if(isFirst||isLast){ ctx.strokeStyle='#fff'; ctx.lineWidth=1.2; ctx.stroke(); }
+  });
 }
-
-function stopAnim(){
-  isPlaying = false;
-  if(animTimer) clearTimeout(animTimer);
-  document.getElementById('playBtn').textContent = '▶ Animar';
-}
-
-function resetAnim(){
-  stopAnim();
-  animStep = getFilteredRoute().length;
-  draw();
-}
-
-function setMod(v, btn){
-  filtMod = v;
-  document.querySelectorAll('#modSeg button').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  if(currentPicker){ animStep=getFilteredRoute().length; draw(); }
-}
-
-function setNiv(v, btn){
-  filtNiv = v;
-  document.querySelectorAll('#nivSeg button').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  if(currentPicker){ animStep=getFilteredRoute().length; draw(); }
-}
-
-function toggleLegend(){
-  const body = document.getElementById('legendBody');
-  const toggle = document.getElementById('legendToggle');
-  const collapsed = body.style.display === 'none';
-  body.style.display = collapsed ? '' : 'none';
-  toggle.textContent = collapsed ? '▾' : '▸';
-}
-
-resize();
-
 // ── FILE LOADING ──
 function handleDrop(e){
   e.preventDefault();
@@ -675,6 +714,17 @@ function processRows(rows, filename){
     // Guardar fecha completa para filtro (YYYY-MM-DD HH:MM)
     const fullDate = String(r[tsCol]||'').trim().slice(0,10);
     newRoutes[user].push([fullDate+'|'+t, loc[0], loc[1], loc[2], qty]);
+    // Detect mezzanina pick
+    const fromRaw = String(r[fromCol]||'').trim();
+    if(/^N\d{9}$/.test(fromRaw)){
+      const mm = fromRaw.match(/^N(\d)(\d{2})(\d{3})(\d{2})(\d)$/);
+      if(mm){
+        const mNivel=+mm[1],mPas=+mm[2],mBay=+mm[3],mAltura=+mm[4],mPos=+mm[5];
+        const mCol=(mBay-1)*5+mPos;
+        if(!MEZZ_ROUTES[user]) MEZZ_ROUTES[user]=[];
+        MEZZ_ROUTES[user].push([t, mNivel, mPas, mCol, mAltura, qty]);
+      }
+    }
   });
 
   if(!Object.keys(newRoutes).length){
